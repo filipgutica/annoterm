@@ -17,6 +17,16 @@ test_dir="${0:A:h}"
 repo_root="${test_dir:h}"
 launcher_source="$repo_root/macos/AnnotermLauncher.applescript"
 
+assert_file_contains() {
+  local needle="$1"
+  local file="$2"
+
+  [[ "$(<"$file")" == *"$needle"* ]] || {
+    print -u2 "missing expected text in $file: $needle"
+    exit 1
+  }
+}
+
 [[ -d "$bundle" ]] || {
   print -u2 "missing app bundle: $bundle"
   exit 1
@@ -47,20 +57,20 @@ plutil -lint "$plist" >/dev/null
 [[ "$(plutil -extract CFBundleDocumentTypes.0.LSHandlerRank raw "$plist")" == "Alternate" ]]
 [[ "$(plutil -extract CFBundleDocumentTypes.0.LSItemContentTypes.0 raw "$plist")" == "net.daringfireball.markdown" ]]
 [[ "$(plutil -extract UTImportedTypeDeclarations.0.UTTypeIdentifier raw "$plist")" == "net.daringfireball.markdown" ]]
-rg -Fq '<string>md</string>' "$plist"
-rg -Fq '<string>markdown</string>' "$plist"
+assert_file_contains '<string>md</string>' "$plist"
+assert_file_contains '<string>markdown</string>' "$plist"
 
-rg -Fq 'quoted form of coreBinary' "$launcher_source"
-rg -Fq 'quoted form of markdownPath' "$launcher_source"
-rg -Fq 'tell application "/System/Applications/Utilities/Terminal.app"' "$launcher_source"
-rg -Fq 'on error errorMessage number errorNumber' "$launcher_source"
-rg -Fq 'errorNumber is -1743' "$launcher_source"
-rg -Fq 'System Settings > Privacy & Security > Automation' "$launcher_source"
-rg -Fq -- '--host-only' "$repo_root/scripts/build-macos-app.sh"
-rg -Fq 'lipo -create' "$repo_root/scripts/build-macos-app.sh"
-rg -Fq 'codesign --verify --deep --strict "$staged_destination"' "$repo_root/scripts/install-macos-app.sh"
-rg -Fq 'mv "$destination" "$backup_destination"' "$repo_root/scripts/install-macos-app.sh"
-rg -Fq 'mv "$backup_destination" "$destination"' "$repo_root/scripts/install-macos-app.sh"
+assert_file_contains 'quoted form of coreBinary' "$launcher_source"
+assert_file_contains 'quoted form of markdownPath' "$launcher_source"
+assert_file_contains 'tell application "/System/Applications/Utilities/Terminal.app"' "$launcher_source"
+assert_file_contains 'on error errorMessage number errorNumber' "$launcher_source"
+assert_file_contains 'errorNumber is -1743' "$launcher_source"
+assert_file_contains 'System Settings > Privacy & Security > Automation' "$launcher_source"
+assert_file_contains '--host-only' "$repo_root/scripts/build-macos-app.sh"
+assert_file_contains 'lipo -create' "$repo_root/scripts/build-macos-app.sh"
+assert_file_contains 'codesign --verify --deep --strict "$staged_destination"' "$repo_root/scripts/install-macos-app.sh"
+assert_file_contains 'mv "$destination" "$backup_destination"' "$repo_root/scripts/install-macos-app.sh"
+assert_file_contains 'mv "$backup_destination" "$destination"' "$repo_root/scripts/install-macos-app.sh"
 
 codesign --verify --deep --strict "$bundle"
 
