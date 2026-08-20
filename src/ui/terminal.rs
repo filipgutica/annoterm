@@ -329,9 +329,13 @@ fn draw_document_only(frame: &mut Frame, app: &App) {
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(1), Constraint::Min(1)])
         .split(frame.area());
+    let (document_area, comment_area) =
+        document_and_comment_areas(chunks[1], app.comment_draft.is_some());
     frame.render_widget(Paragraph::new(safe_display(&app.status)), chunks[0]);
-    draw_document_pane(frame, app, chunks[1]);
-    draw_comment_draft(frame, app);
+    draw_document_pane(frame, app, document_area);
+    if let Some(area) = comment_area {
+        draw_comment_draft(frame, app, area);
+    }
 }
 
 fn draw_three_pane(frame: &mut Frame, app: &App) {
@@ -347,10 +351,26 @@ fn draw_three_pane(frame: &mut Frame, app: &App) {
             Constraint::Percentage(100 - document_width),
         ])
         .split(vertical[1]);
+    let (document_area, comment_area) =
+        document_and_comment_areas(horizontal[0], app.comment_draft.is_some());
     frame.render_widget(Paragraph::new(safe_display(&app.status)), vertical[0]);
-    draw_document_pane(frame, app, horizontal[0]);
+    draw_document_pane(frame, app, document_area);
     frame.render_widget(comments_widget(app, horizontal[1]), horizontal[1]);
-    draw_comment_draft(frame, app);
+    if let Some(area) = comment_area {
+        draw_comment_draft(frame, app, area);
+    }
+}
+
+fn document_and_comment_areas(area: Rect, comment_open: bool) -> (Rect, Option<Rect>) {
+    if !comment_open {
+        return (area, None);
+    }
+    let comment_height = area.height.saturating_sub(3).clamp(2, 5);
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(2), Constraint::Length(comment_height)])
+        .split(area);
+    (chunks[0], Some(chunks[1]))
 }
 
 fn draw_document_pane(frame: &mut Frame, app: &App, area: Rect) {
@@ -361,28 +381,32 @@ fn draw_document_pane(frame: &mut Frame, app: &App, area: Rect) {
     place_raw_cursor(frame, app, area, raw_cursor, scroll);
 }
 
-fn draw_comment_draft(frame: &mut Frame, app: &App) {
+fn draw_comment_draft(frame: &mut Frame, app: &App, area: Rect) {
     let Some(draft) = &app.comment_draft else {
         return;
     };
-    let area = frame.area();
-    let width = area.width.saturating_sub(8).min(60);
-    let height = 5;
-    let popup = ratatui::layout::Rect::new(
-        area.x + area.width.saturating_sub(width) / 2,
-        area.y + area.height.saturating_sub(height) / 2,
-        width,
-        height,
-    );
-    frame.render_widget(Clear, popup);
+    frame.render_widget(Clear, area);
+    if area.height < 3 {
+        frame.render_widget(
+            Paragraph::new(vec![
+                Line::from(format!("Comment: {}", safe_display(draft))),
+                Line::from("Enter save · Esc cancel"),
+            ])
+            .wrap(Wrap { trim: false }),
+            area,
+        );
+        return;
+    }
     frame.render_widget(
-        Paragraph::new(format!(
-            "{}\n\nEnter saves comment · Esc cancels",
-            safe_display(draft)
-        ))
-        .block(Block::default().borders(Borders::ALL).title("Comment"))
-        .wrap(Wrap { trim: false }),
-        popup,
+        Paragraph::new(safe_display(draft))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Comment")
+                    .title_bottom("Enter save · Esc cancel"),
+            )
+            .wrap(Wrap { trim: false }),
+        area,
     );
 }
 
@@ -1000,7 +1024,7 @@ mod tests {
     };
 
     #[test]
-    fn comment_modal_clears_the_document_behind_it() {
+    fn comment_editor_preserves_document_context_in_a_bottom_pane() {
         let source = vec!["X".repeat(79); 24].join("\n");
         let mut app = App::new(source.clone(), parse(&source).unwrap());
         app.apply(Command::ToggleMode).unwrap();
@@ -1009,7 +1033,35 @@ mod tests {
 
         terminal.draw(|frame| draw(frame, &app)).unwrap();
 
-        assert_eq!(terminal.backend().buffer()[(11, 10)].symbol(), " ");
+        let buffer = terminal.backend().buffer();
+        assert_eq!(buffer[(2, 10)].symbol(), "X");
+        let editor_title = (0..80)
+            .map(|x| buffer[(x, 19)].symbol())
+            .collect::<String>();
+        let editor_footer = (0..80)
+            .map(|x| buffer[(x, 23)].symbol())
+            .collect::<String>();
+        assert!(editor_title.contains("Comment"));
+        assert!(editor_footer.contains("Enter save · Esc cancel"));
+    }
+
+    #[test]
+    fn compact_comment_editor_preserves_document_context_at_minimum_height() {
+        let source = "Visible context";
+        let mut app = App::new(source.into(), parse(source).unwrap());
+        app.apply(Command::BeginComment).unwrap();
+        app.apply(Command::AppendCommentCharacter('D')).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(30, 6)).unwrap();
+
+        terminal.draw(|frame| draw(frame, &app)).unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let visible = (0..6)
+            .map(|y| (0..30).map(|x| buffer[(x, y)].symbol()).collect::<String>())
+            .collect::<Vec<_>>();
+        assert!(visible[2].contains("Visible context"));
+        assert!(visible[4].contains("Comment: D"));
+        assert!(visible[5].contains("Enter save · Esc cancel"));
     }
 
     #[test]
