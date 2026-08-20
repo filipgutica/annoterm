@@ -855,10 +855,9 @@ fn selection_style() -> Style {
 fn block_style(kind: BlockKind, heading_level: Option<u8>, colors: bool) -> Style {
     match kind {
         BlockKind::Heading => match heading_level.unwrap_or(6) {
-            1 => with_color(Style::default(), Color::Cyan, colors)
-                .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
-            2 => with_color(Style::default(), Color::Cyan, colors).add_modifier(Modifier::BOLD),
-            3 => with_color(Style::default(), Color::Blue, colors).add_modifier(Modifier::BOLD),
+            1 => Style::default().add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+            2 => Style::default().add_modifier(Modifier::BOLD),
+            3 => Style::default().add_modifier(Modifier::BOLD | Modifier::ITALIC),
             4 => Style::default().add_modifier(Modifier::BOLD),
             5 => Style::default().add_modifier(Modifier::ITALIC),
             _ => with_color(Style::default(), Color::DarkGray, colors)
@@ -894,7 +893,7 @@ fn inline_style(style: RenderStyle, colors: bool) -> Style {
         output = output.add_modifier(Modifier::CROSSED_OUT);
     }
     if style.link {
-        output = with_color(output, Color::Blue, colors).add_modifier(Modifier::UNDERLINED);
+        output = output.add_modifier(Modifier::UNDERLINED);
     }
     if style.code {
         output = if colors {
@@ -1745,6 +1744,26 @@ mod tests {
         assert!(spans.iter().any(|span| {
             span.content == "link" && span.style.add_modifier.contains(Modifier::UNDERLINED)
         }));
+    }
+
+    #[test]
+    fn links_and_headings_use_the_terminal_default_foreground() {
+        let top_heading = block_style(BlockKind::Heading, Some(1), true);
+        let section_heading = block_style(BlockKind::Heading, Some(2), true);
+        let topic_heading = block_style(BlockKind::Heading, Some(3), true);
+        let link = inline_style(
+            RenderStyle {
+                link: true,
+                ..RenderStyle::default()
+            },
+            true,
+        );
+
+        assert_eq!(top_heading.fg, None);
+        assert_eq!(section_heading.fg, None);
+        assert_eq!(topic_heading.fg, None);
+        assert_eq!(link.fg, None);
+        assert!(link.add_modifier.contains(Modifier::UNDERLINED));
     }
 
     #[test]

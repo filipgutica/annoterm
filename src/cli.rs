@@ -153,7 +153,7 @@ fn open(file: PathBuf, annotation_path: Option<PathBuf>) -> Result<()> {
     let rendered = parse(&source)?;
     let mut app = App::new(source, rendered);
     app.set_document_fingerprint(document.fingerprint());
-    let sidecar_path = sidecar_path(&document, annotation_path)?;
+    let sidecar_path = writable_sidecar_path(&document, annotation_path)?;
     let (mut sidecar, mut sidecar_revision, sidecar_changed) =
         load_sidecar(&document, &sidecar_path)?;
     if sidecar_changed {
@@ -235,10 +235,61 @@ fn export(
 }
 
 fn sidecar_path(document: &Document, override_path: Option<PathBuf>) -> Result<PathBuf> {
-    override_path.map_or_else(
-        || default_sidecar_path(document.path()).map_err(anyhow::Error::from),
-        Ok,
-    )
+    match override_path {
+        Some(path) => Ok(path),
+        None => {
+            let path = default_sidecar_path(document.path()).map_err(anyhow::Error::from)?;
+            if path.exists() {
+                return Ok(path);
+            }
+            let legacy_path = legacy_sidecar_path(document.path())?;
+            if legacy_path.exists() {
+                Ok(legacy_path)
+            } else {
+                Ok(path)
+            }
+        }
+    }
+}
+
+fn writable_sidecar_path(document: &Document, override_path: Option<PathBuf>) -> Result<PathBuf> {
+    match override_path {
+        Some(path) => Ok(path),
+        None => {
+            let path = default_sidecar_path(document.path()).map_err(anyhow::Error::from)?;
+            migrate_legacy_sidecar(document.path(), &path)?;
+            Ok(path)
+        }
+    }
+}
+
+fn legacy_sidecar_path(document_path: &std::path::Path) -> Result<PathBuf> {
+    let parent = document_path
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."));
+    let filename = document_path
+        .file_name()
+        .ok_or_else(|| anyhow!("document path has no filename"))?;
+    Ok(parent
+        .join(".annoterm")
+        .join(format!("{}.annotations.json", filename.to_string_lossy())))
+}
+
+fn migrate_legacy_sidecar(
+    document_path: &std::path::Path,
+    destination: &std::path::Path,
+) -> Result<()> {
+    if destination.exists() {
+        return Ok(());
+    }
+    let legacy_path = legacy_sidecar_path(document_path)?;
+    if legacy_path.exists() {
+        match SidecarStore::save_checked(destination, &SidecarStore::load(&legacy_path)?, None) {
+            Ok(_) | Err(SidecarStoreError::ExternalChange) => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(())
 }
 
 fn load_sidecar(
@@ -305,9 +356,11 @@ fn relative_path(base: &std::path::Path, target: &std::path::Path) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::{document_reference, load_sidecar};
+    use super::{
+        document_reference, legacy_sidecar_path, load_sidecar, migrate_legacy_sidecar, sidecar_path,
+    };
     use crate::{
-        annotations::{Annotation, Sidecar, SidecarStore, capture_anchor},
+        annotations::{Annotation, Sidecar, SidecarStore, capture_anchor, default_sidecar_path},
         document::Document,
     };
 
@@ -324,6 +377,41 @@ mod tests {
             document_reference(&sidecar, &document).unwrap(),
             std::path::PathBuf::from("../guide.md")
         );
+    }
+
+    #[test]
+    fn legacy_sidecars_are_copied_to_user_local_storage() {
+        let root = tempfile::tempdir().unwrap();
+        let document_path = root.path().join("guide.md");
+        std::fs::write(&document_path, "# Guide\n").unwrap();
+        let document = Document::load(&document_path).unwrap();
+        let legacy_path = legacy_sidecar_path(document.path()).unwrap();
+        let expected = Sidecar::new(std::path::Path::new("../guide.md"), "sha256:document");
+        SidecarStore::save(&legacy_path, &expected).unwrap();
+        let destination = root.path().join("home").join("annotations.json");
+
+        migrate_legacy_sidecar(document.path(), &destination).unwrap();
+
+        assert_eq!(SidecarStore::load(&destination).unwrap(), expected);
+        assert!(legacy_path.exists());
+    }
+
+    #[test]
+    fn read_commands_use_legacy_sidecars_without_migrating_them() {
+        let root = tempfile::tempdir().unwrap();
+        let document_path = root.path().join("guide.md");
+        std::fs::write(&document_path, "# Guide\n").unwrap();
+        let document = Document::load(&document_path).unwrap();
+        let legacy_path = legacy_sidecar_path(document.path()).unwrap();
+        SidecarStore::save(
+            &legacy_path,
+            &Sidecar::new(std::path::Path::new("../guide.md"), "sha256:document"),
+        )
+        .unwrap();
+        let user_local_path = default_sidecar_path(document.path()).unwrap();
+
+        assert_eq!(sidecar_path(&document, None).unwrap(), legacy_path);
+        assert!(!user_local_path.exists());
     }
 
     #[test]

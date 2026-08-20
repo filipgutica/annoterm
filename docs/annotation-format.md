@@ -1,6 +1,8 @@
 # Annotation sidecar format
 
-Annoterm stores review data outside the Markdown source. For `guide.md`, the default file is `.annoterm/guide.md.annotations.json` next to the document.
+Annoterm stores review data outside the Markdown source. For `guide.md`, the default file is `~/.annoterm/<sha256-of-canonical-document-path>.annotations.json`. The filename is a SHA-256 hash of the canonical document path.
+
+On interactive open, Annoterm checks for a legacy `.annoterm/guide.md.annotations.json` file. If no user-local sidecar exists, Annoterm copies that file. It leaves the legacy file unchanged. Remove the old `.annoterm` directory after you verify the copy.
 
 ## Schema version 1
 
@@ -46,13 +48,13 @@ Readers accept schema version 1 only. They reject both older and newer versions 
 
 ## Moves, renames, and edits
 
-The document path is relative to the sidecar. Moving the document and its `.annoterm` directory together keeps the reference valid. Renaming only the document changes the default sidecar name, so open the old sidecar explicitly once:
+The document path is relative to the sidecar. Moving or renaming a document changes its default annotation path. The original annotations remain in `~/.annoterm`. To continue using them, open the existing file explicitly:
 
 ```sh
-annoterm renamed.md --annotations .annoterm/old.md.annotations.json
+annoterm renamed.md --annotations ~/.annoterm/<existing-sidecar>.annotations.json
 ```
 
-Annoterm keeps the existing document and annotation identifiers and writes the new relative path when it opens the sidecar. You may rename the sidecar afterward.
+Annoterm keeps the existing document and annotation identifiers. It writes the new relative document path when it opens the sidecar.
 
 Source edits change the SHA-256 fingerprint. Annoterm then re-anchors comments from their quote and nearby context. A unique match updates the range, context, and anchor fingerprint. A missing or ambiguous match becomes orphaned and remains in the file until a user repairs or deletes it.
 

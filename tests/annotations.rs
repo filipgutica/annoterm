@@ -1,20 +1,44 @@
 use annoterm::annotations::{
     Annotation, Sidecar, SidecarStore, SidecarStoreError, capture_anchor, default_sidecar_path,
 };
+use sha2::{Digest, Sha256};
 use tempfile::tempdir;
+
+#[test]
+fn default_sidecars_are_stored_in_user_home_by_canonical_document_path() {
+    let directory = tempdir().unwrap();
+    let document_path = directory.path().join("guide.md");
+    let source = "# Guide\n\nReview this paragraph.\n";
+    std::fs::write(&document_path, source).unwrap();
+
+    let path = default_sidecar_path(&document_path).unwrap();
+    let canonical_path = std::fs::canonicalize(&document_path).unwrap();
+    let expected_filename = format!(
+        "{:x}.annotations.json",
+        Sha256::digest(canonical_path.as_os_str().as_encoded_bytes())
+    );
+
+    assert_eq!(
+        path,
+        std::path::PathBuf::from(std::env::var_os("HOME").unwrap())
+            .join(".annoterm")
+            .join(expected_filename)
+    );
+}
 
 #[test]
 fn sidecars_round_trip_with_stable_annotations() {
     let directory = tempdir().unwrap();
     let document_path = directory.path().join("guide.md");
     let source = "# Guide\n\nReview this paragraph.\n";
+    std::fs::write(&document_path, source).unwrap();
     let mut sidecar = Sidecar::new(&document_path, "sha256:document");
     sidecar.annotations.push(Annotation::new(
         capture_anchor(source, 9..31, "sha256:document", "paragraph").unwrap(),
         "Add an example.",
     ));
 
-    let path = default_sidecar_path(&document_path).unwrap();
+    let path = directory.path().join("annotations.json");
     SidecarStore::save(&path, &sidecar).unwrap();
     let loaded = SidecarStore::load(&path).unwrap();
 

@@ -136,23 +136,25 @@ The Comments panel shows the active focus and keeps the selected comment visible
 
 ## Local annotation files
 
-Annoterm stores comments outside the Markdown source. The default sidecar for `docs/guide.md` is:
+Annoterm stores comments outside the Markdown source in your home directory. The default sidecar for `docs/guide.md` is:
 
 ```text
-docs/.annoterm/guide.md.annotations.json
+~/.annoterm/<sha256-of-canonical-document-path>.annotations.json
 ```
 
-The sidecar stores source ranges, quoted text, nearby context, timestamps, status, and document fingerprints. Annoterm uses this data to re-anchor comments after edits.
+The filename is a SHA-256 hash of the canonical document path. This keeps your Git worktree clean. The sidecar stores source ranges, quoted text, nearby context, timestamps, status, and document fingerprints. Annoterm uses this data to re-anchor comments after edits.
+
+On interactive open, Annoterm checks for a legacy project sidecar. If no user-local sidecar exists, Annoterm copies that file. It leaves the legacy file unchanged. Remove the old `.annoterm` directory after you verify the copy.
 
 If Annoterm cannot find a safe match, it preserves the comment as orphaned. Select new text and press `o` to repair it.
 
-You can choose another sidecar path:
+To use a shareable sidecar in a repository, choose its path explicitly:
 
 ```sh
 annoterm docs/guide.md --annotations reviews/guide.annotations.json
 ```
 
-Sidecars are safe to commit when their comments belong in the repository. See [the annotation format](docs/annotation-format.md) for the full schema.
+Explicit sidecars are safe to commit when their comments belong in the repository. See [the annotation format](docs/annotation-format.md) for the full schema.
 
 ## Markdown and terminal support
 

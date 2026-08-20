@@ -129,11 +129,16 @@ fn revision(bytes: &[u8]) -> String {
 }
 
 pub fn default_sidecar_path(document_path: &Path) -> io::Result<PathBuf> {
-    let parent = document_path.parent().unwrap_or_else(|| Path::new("."));
-    let filename = document_path.file_name().ok_or_else(|| {
-        io::Error::new(io::ErrorKind::InvalidInput, "document path has no filename")
+    let home = std::env::var_os("HOME").ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::NotFound,
+            "could not determine the home directory",
+        )
     })?;
-    Ok(parent
-        .join(".annoterm")
-        .join(format!("{}.annotations.json", filename.to_string_lossy())))
+    let canonical_path = fs::canonicalize(document_path)?;
+    let filename = format!(
+        "{:x}.annotations.json",
+        Sha256::digest(canonical_path.as_os_str().as_encoded_bytes())
+    );
+    Ok(PathBuf::from(home).join(".annoterm").join(filename))
 }
