@@ -1,4 +1,4 @@
-use std::{fmt, ops::Range, path::Path};
+use std::{collections::BTreeMap, fmt, ops::Range, path::Path};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -27,6 +27,12 @@ pub struct Anchor {
     pub block_kind: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NavigationHint {
+    pub source_range: SourceRange,
+    pub document_fingerprint: String,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AnnotationStatus {
@@ -38,6 +44,7 @@ pub enum AnnotationStatus {
 #[serde(rename_all = "snake_case")]
 pub enum AnchorState {
     Anchored,
+    Outdated,
     Orphaned,
 }
 
@@ -47,6 +54,8 @@ pub struct Annotation {
     pub status: AnnotationStatus,
     pub anchor_state: AnchorState,
     pub anchor: Anchor,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub navigation_hint: Option<NavigationHint>,
     pub comment: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -63,6 +72,8 @@ pub struct SidecarDocument {
 pub struct Sidecar {
     pub schema_version: u32,
     pub document: SidecarDocument,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub snapshots: BTreeMap<String, String>,
     pub annotations: Vec<Annotation>,
 }
 
@@ -85,6 +96,7 @@ impl Annotation {
             status: AnnotationStatus::Open,
             anchor_state: AnchorState::Anchored,
             anchor,
+            navigation_hint: None,
             comment: comment.into(),
             created_at: now,
             updated_at: now,
@@ -98,6 +110,20 @@ impl Annotation {
     pub fn is_open(&self) -> bool {
         self.status == AnnotationStatus::Open
     }
+
+    pub fn current_range(&self, document_fingerprint: &str) -> Option<&SourceRange> {
+        match self.anchor_state {
+            AnchorState::Anchored if self.anchor.document_fingerprint == document_fingerprint => {
+                Some(&self.anchor.source_range)
+            }
+            AnchorState::Outdated => self
+                .navigation_hint
+                .as_ref()
+                .filter(|hint| hint.document_fingerprint == document_fingerprint)
+                .map(|hint| &hint.source_range),
+            AnchorState::Anchored | AnchorState::Orphaned => None,
+        }
+    }
 }
 
 impl Sidecar {
@@ -109,8 +135,21 @@ impl Sidecar {
                 path: document_path.to_string_lossy().into_owned(),
                 fingerprint: fingerprint.into(),
             },
+            snapshots: BTreeMap::new(),
             annotations: Vec::new(),
         }
+    }
+
+    pub fn retain_referenced_snapshots(&mut self) {
+        self.snapshots.retain(|fingerprint, _| {
+            self.annotations.iter().any(|annotation| {
+                annotation.anchor.document_fingerprint == *fingerprint
+                    || annotation
+                        .navigation_hint
+                        .as_ref()
+                        .is_some_and(|hint| hint.document_fingerprint == *fingerprint)
+            })
+        });
     }
 }
 

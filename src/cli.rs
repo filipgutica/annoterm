@@ -5,7 +5,8 @@ use clap::{Args, Parser, Subcommand};
 
 use crate::{
     annotations::{
-        Sidecar, SidecarStore, SidecarStoreError, default_sidecar_path, reanchor_annotation,
+        Sidecar, SidecarStore, SidecarStoreError, default_sidecar_path,
+        reanchor_annotation_with_snapshots,
     },
     app::App,
     document::Document,
@@ -153,11 +154,17 @@ fn open(file: PathBuf, annotation_path: Option<PathBuf>) -> Result<()> {
     let rendered = parse(&source)?;
     let mut app = App::new(source, rendered);
     app.set_document_fingerprint(document.fingerprint());
+    let private_sidecar = annotation_path.is_none();
     let sidecar_path = writable_sidecar_path(&document, annotation_path)?;
     let (mut sidecar, mut sidecar_revision, sidecar_changed) =
         load_sidecar(&document, &sidecar_path)?;
     if sidecar_changed {
-        match SidecarStore::save_checked(&sidecar_path, &sidecar, sidecar_revision.as_deref()) {
+        match save_sidecar_checked(
+            &sidecar_path,
+            &sidecar,
+            sidecar_revision.as_deref(),
+            private_sidecar,
+        ) {
             Ok(revision) => sidecar_revision = Some(revision),
             Err(SidecarStoreError::Io(error))
                 if error.kind() == std::io::ErrorKind::PermissionDenied =>
@@ -169,6 +176,7 @@ fn open(file: PathBuf, annotation_path: Option<PathBuf>) -> Result<()> {
         }
     }
     app.comments = sidecar.annotations.clone();
+    app.set_annotation_snapshots(sidecar.snapshots.clone());
     app.selected_comment = (!app.comments.is_empty()).then_some(0);
     ui::run(
         &mut app,
@@ -179,12 +187,21 @@ fn open(file: PathBuf, annotation_path: Option<PathBuf>) -> Result<()> {
                 .map_err(anyhow::Error::from)
                 .map(|()| document.fingerprint().to_owned())
         },
-        |annotations, fingerprint| {
+        |annotations, fingerprint, source| {
             sidecar.annotations = annotations.to_vec();
             sidecar.document.fingerprint = fingerprint.to_owned();
+            sidecar
+                .snapshots
+                .insert(fingerprint.to_owned(), source.to_owned());
+            sidecar.retain_referenced_snapshots();
             sidecar_revision = Some(
-                SidecarStore::save_checked(&sidecar_path, &sidecar, sidecar_revision.as_deref())
-                    .map_err(anyhow::Error::from)?,
+                save_sidecar_checked(
+                    &sidecar_path,
+                    &sidecar,
+                    sidecar_revision.as_deref(),
+                    private_sidecar,
+                )
+                .map_err(anyhow::Error::from)?,
             );
             match copy_prompt(&generate_prompt(&sidecar)) {
                 ClipboardStatus::Copied { .. } | ClipboardStatus::SentOsc52 { .. } => Ok(()),
@@ -196,7 +213,41 @@ fn open(file: PathBuf, annotation_path: Option<PathBuf>) -> Result<()> {
                 )),
             }
         },
-    )
+    )?;
+    if sidecar_path.exists() {
+        let persisted_sidecar = SidecarStore::load(&sidecar_path)?;
+        if let Some(message) = exit_feedback_message(&persisted_sidecar, copy_prompt) {
+            println!("{message}");
+        }
+    }
+    Ok(())
+}
+
+fn exit_feedback_message<F>(sidecar: &Sidecar, copy: F) -> Option<String>
+where
+    F: FnOnce(&str) -> ClipboardStatus,
+{
+    if !sidecar
+        .annotations
+        .iter()
+        .any(|annotation| annotation.is_open())
+    {
+        return None;
+    }
+    Some(match copy(&generate_prompt(sidecar)) {
+        ClipboardStatus::Copied { .. } => "Open annotations copied to the clipboard.".into(),
+        ClipboardStatus::SentOsc52 { payload_bytes } => format!(
+            "Sent {payload_bytes} feedback bytes for open annotations with OSC 52. The terminal cannot confirm the clipboard contents."
+        ),
+        ClipboardStatus::Unavailable => {
+            "No clipboard backend is available. Open annotations remain in the sidecar.".into()
+        }
+        ClipboardStatus::Failed { backend, message } => {
+            format!(
+                "{backend:?} clipboard copy failed: {message}. Open annotations remain in the sidecar."
+            )
+        }
+    })
 }
 
 fn copy(file: PathBuf, annotation_path: Option<PathBuf>) -> Result<()> {
@@ -284,12 +335,29 @@ fn migrate_legacy_sidecar(
     }
     let legacy_path = legacy_sidecar_path(document_path)?;
     if legacy_path.exists() {
-        match SidecarStore::save_checked(destination, &SidecarStore::load(&legacy_path)?, None) {
+        match SidecarStore::save_checked_private(
+            destination,
+            &SidecarStore::load(&legacy_path)?,
+            None,
+        ) {
             Ok(_) | Err(SidecarStoreError::ExternalChange) => {}
             Err(error) => return Err(error.into()),
         }
     }
     Ok(())
+}
+
+fn save_sidecar_checked(
+    path: &std::path::Path,
+    sidecar: &Sidecar,
+    expected_revision: Option<&str>,
+    private: bool,
+) -> Result<String, SidecarStoreError> {
+    if private {
+        SidecarStore::save_checked_private(path, sidecar, expected_revision)
+    } else {
+        SidecarStore::save_checked(path, sidecar, expected_revision)
+    }
 }
 
 fn load_sidecar(
@@ -313,10 +381,20 @@ fn load_sidecar(
     sidecar.document.path = document_reference(path, document.path())?
         .to_string_lossy()
         .into_owned();
+    sidecar.snapshots.insert(
+        document.fingerprint().to_owned(),
+        document.text().to_owned(),
+    );
     for annotation in &mut sidecar.annotations {
-        reanchor_annotation(annotation, document.text(), document.fingerprint());
+        reanchor_annotation_with_snapshots(
+            annotation,
+            document.text(),
+            document.fingerprint(),
+            &sidecar.snapshots,
+        );
     }
     sidecar.document.fingerprint = document.fingerprint().to_owned();
+    sidecar.retain_referenced_snapshots();
     let changed = revision.is_some() && sidecar != original;
     Ok((sidecar, revision, changed))
 }
@@ -357,12 +435,71 @@ fn relative_path(base: &std::path::Path, target: &std::path::Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::{
-        document_reference, legacy_sidecar_path, load_sidecar, migrate_legacy_sidecar, sidecar_path,
+        document_reference, exit_feedback_message, legacy_sidecar_path, load_sidecar,
+        migrate_legacy_sidecar, sidecar_path,
     };
     use crate::{
-        annotations::{Annotation, Sidecar, SidecarStore, capture_anchor, default_sidecar_path},
+        annotations::{
+            AnchorState, Annotation, Sidecar, SidecarStore, capture_anchor, default_sidecar_path,
+        },
         document::Document,
+        feedback::{ClipboardBackend, ClipboardStatus},
     };
+
+    #[test]
+    fn exit_feedback_copies_open_annotations_and_reports_success() {
+        let source = "# Guide\n";
+        let mut sidecar = Sidecar::new(std::path::Path::new("guide.md"), "sha256:document");
+        sidecar.annotations.push(Annotation::new(
+            capture_anchor(source, 0..7, "sha256:document", "heading").unwrap(),
+            "Clarify this.",
+        ));
+
+        let message = exit_feedback_message(&sidecar, |prompt| {
+            assert!(prompt.contains("Comment:\n\nClarify this."));
+            ClipboardStatus::Copied {
+                backend: ClipboardBackend::Pbcopy,
+            }
+        });
+
+        assert_eq!(
+            message.as_deref(),
+            Some("Open annotations copied to the clipboard.")
+        );
+    }
+
+    #[test]
+    fn exit_feedback_reports_clipboard_failure_without_claiming_a_save() {
+        let source = "# Guide\n";
+        let mut sidecar = Sidecar::new(std::path::Path::new("guide.md"), "sha256:document");
+        sidecar.annotations.push(Annotation::new(
+            capture_anchor(source, 0..7, "sha256:document", "heading").unwrap(),
+            "Clarify this.",
+        ));
+
+        let message = exit_feedback_message(&sidecar, |_| ClipboardStatus::Failed {
+            backend: ClipboardBackend::Pbcopy,
+            message: "clipboard unavailable".into(),
+        });
+
+        assert_eq!(
+            message.as_deref(),
+            Some(
+                "Pbcopy clipboard copy failed: clipboard unavailable. Open annotations remain in the sidecar."
+            )
+        );
+    }
+
+    #[test]
+    fn exit_feedback_does_not_replace_the_clipboard_without_open_annotations() {
+        let sidecar = Sidecar::new(std::path::Path::new("guide.md"), "sha256:document");
+
+        let message = exit_feedback_message(&sidecar, |_| {
+            panic!("clipboard must not change without open annotations")
+        });
+
+        assert_eq!(message, None);
+    }
 
     #[test]
     fn document_paths_are_relative_to_the_sidecar() {
@@ -435,5 +572,53 @@ mod tests {
 
         assert_eq!(persisted.annotations[0].anchor.source_range.start.byte, 7);
         assert_eq!(persisted.document.fingerprint, document.fingerprint());
+        assert_eq!(
+            persisted
+                .snapshots
+                .get(document.fingerprint())
+                .map(String::as_str),
+            Some(document.text())
+        );
+    }
+
+    #[test]
+    fn startup_maps_rewritten_annotations_and_saves_the_current_snapshot() {
+        let root = tempfile::tempdir().unwrap();
+        let document_path = root.path().join("guide.md");
+        let original = "# Guide\n\nOriginal paragraph.\n";
+        let revised = "# Guide\n\nReplacement paragraph.\n";
+        std::fs::write(&document_path, revised).unwrap();
+        let document = Document::load(&document_path).unwrap();
+        let sidecar_path = root.path().join("annotations.json");
+        let mut sidecar = Sidecar::new(std::path::Path::new("guide.md"), "sha256:old");
+        sidecar
+            .snapshots
+            .insert("sha256:old".into(), original.into());
+        sidecar.annotations.push(Annotation::new(
+            capture_anchor(original, 9..28, "sha256:old", "paragraph").unwrap(),
+            "Review this.",
+        ));
+        SidecarStore::save(&sidecar_path, &sidecar).unwrap();
+
+        let (sidecar, revision, changed) = load_sidecar(&document, &sidecar_path).unwrap();
+        assert!(changed);
+        SidecarStore::save_checked(&sidecar_path, &sidecar, revision.as_deref()).unwrap();
+        let persisted = SidecarStore::load(&sidecar_path).unwrap();
+
+        assert_eq!(persisted.annotations[0].anchor_state, AnchorState::Outdated);
+        assert_eq!(
+            persisted.annotations[0]
+                .navigation_hint
+                .as_ref()
+                .map(|hint| hint.source_range.start.line),
+            Some(3)
+        );
+        assert_eq!(
+            persisted
+                .snapshots
+                .get(document.fingerprint())
+                .map(String::as_str),
+            Some(document.text())
+        );
     }
 }

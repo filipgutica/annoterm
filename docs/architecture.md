@@ -11,7 +11,7 @@ Annoterm keeps parsing, storage, terminal effects, and application state separat
 | Markdown | `src/markdown/` | Parse CommonMark and GFM into source-positioned rendered blocks. Define terminal-safe fallbacks. |
 | Application | `src/app/` | Own mode, cursor, selection, undo history, selected block, comments, and user commands. It does not write files or access the clipboard. |
 | Terminal UI | `src/ui/` | Map keys to application commands. Draw responsive document and comment panels. Apply syntax styles with Syntect. |
-| Annotations | `src/annotations/` | Define schema version 1, save sidecars atomically, capture anchors, re-anchor comments, and preserve orphans. |
+| Annotations | `src/annotations/` | Define schema version 2, save sidecars atomically, capture anchors, re-anchor comments, and preserve orphans. |
 | Feedback | `src/feedback/` | Generate deterministic Markdown prompts, copy through platform backends, and export atomically. |
 | macOS launcher | `macos/`, `scripts/` | Build a Finder document application that launches the bundled binary in Terminal.app. |
 
@@ -40,11 +40,14 @@ Terminal cell positions are derived only for display. They never replace source 
 Annoterm uses conservative stages:
 
 1. Keep the old range when it still contains the exact quote.
-2. Find a unique exact quote, using nearby context to resolve candidates.
-3. Accept a uniquely bounded changed quote only when its similarity passes the fixed threshold.
-4. Mark the annotation orphaned when candidates are missing or ambiguous.
+2. Find a unique exact quote and use nearby context to resolve candidates.
+3. Accept a bounded changed quote when its similarity passes the fixed threshold.
+4. Map the old range through its saved source snapshot when text matching fails and the diff retains an unchanged boundary.
+5. Use the last known line when a version 1 sidecar has no snapshot.
+6. Mark the annotation outdated and store its approximate current range.
+7. Mark the annotation detached when the current document has no usable range, including a total replacement with no unchanged boundary.
 
-An orphan retains its identifier, last range, quote, context, comment, timestamps, and status. Repair captures the current raw selection or rendered block as a new anchor.
+An outdated annotation keeps its original anchor and a current navigation hint. Repair captures the current selection as a new exact anchor.
 
 ## Dependency choices
 
@@ -52,6 +55,7 @@ An orphan retains its identifier, last range, quote, context, comment, timestamp
 - `markdown-rs` provides a CommonMark and GFM AST with byte, line, and column positions.
 - Syntect highlights recognized fenced-code languages. Unknown languages remain readable plain text.
 - `unicode-segmentation` and `unicode-width` keep cursor movement and terminal placement safe for graphemes and wide characters.
+- `similar` maps annotation lines between saved source versions.
 - `atomic-write-file` performs same-directory atomic replacement.
 
 The application owns the editor state instead of exposing a third-party editor API. This keeps the first-release keymap and save format small and testable.

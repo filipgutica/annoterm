@@ -22,7 +22,9 @@ Annoterm supports macOS and Linux.
 
 ## Quick start
 
-Install Rust 1.88 or newer. Then clone and install Annoterm:
+Annoterm requires Rust 1.88 or newer. Install Rust with [rustup](https://rustup.rs/) if the `cargo` command is not available.
+
+Clone and install Annoterm:
 
 ```sh
 git clone https://github.com/filipgutica/annoterm.git
@@ -30,35 +32,50 @@ cd annoterm
 cargo install --locked --path .
 ```
 
-Open a Markdown file:
+Cargo installs `annoterm` in its binary directory, which is usually `~/.cargo/bin`. Restart your shell if it cannot find the command.
+
+Verify the installation:
 
 ```sh
-annoterm docs/design.md
+annoterm --help
 ```
 
-Annoterm starts in rendered mode. Use the arrow keys or a mouse wheel to select a block, then press `a` to comment on it.
+Open the included README:
+
+```sh
+annoterm README.md
+```
+
+Annoterm starts in rendered mode. Use `Up`, `Down`, a mouse wheel, or a left click to select a block. Press `a` to comment.
+
+Press `q` when you finish. Annoterm copies the open comments to your clipboard as a prompt for your coding agent.
 
 ## A typical review
 
 1. Open the document with `annoterm <file.md>`.
-2. Select a rendered block with `Up` or `Down`.
+2. Select a rendered block with `Up`, `Down`, or a left click.
 3. Press `a`, write the comment, and press `Enter`.
 4. Repeat for each issue.
-5. Paste the generated feedback prompt into your coding agent.
+5. Press `q` to quit and copy the current feedback.
+6. Paste the feedback into your coding agent.
 
-Annoterm copies the updated prompt after each comment change. Run this command if another application replaces your clipboard:
+While you write a comment, use `Left`, `Right`, `Home`, or `End` to move the cursor. Hold `Option` or `Ctrl` with `Left` or `Right` to move between words. `Backspace` removes the previous character.
+
+Annoterm copies the updated prompt after each comment change. When you quit with open annotations, Annoterm copies the prompt again and reports the result. Run this command if another application replaces your clipboard:
 
 ```sh
-annoterm copy-feedback docs/design.md
+annoterm copy-feedback README.md
 ```
 
 You can also export the prompt:
 
 ```sh
-annoterm export docs/design.md --output feedback.md
+annoterm export README.md --output feedback.md
 ```
 
 Add `--force` to replace an existing export.
+
+On Linux, install `wl-copy` for Wayland or `xclip` for X11 if clipboard copy fails. Annoterm uses OSC 52 as a fallback. See [terminal support](docs/terminal-support.md) for details.
 
 ## What the agent receives
 
@@ -91,6 +108,8 @@ Stable annotation IDs let the agent identify each requested change in its respon
 
 Rendered mode is read-only. It supports headings, lists, task lists, tables, links, blockquotes, fenced code, footnotes, and syntax highlighting.
 
+A solid dot (`●`) marks an exact current anchor. A hollow dot (`◌`) marks an outdated comment at an approximate location.
+
 Press `Ctrl+R` to open raw mode. Raw mode edits the Markdown source directly.
 
 To comment on an exact source range:
@@ -104,19 +123,28 @@ Press `Ctrl+S` to save raw changes. Annoterm saves the document atomically and s
 
 ## Comment controls
 
-In rendered mode, comment controls work immediately. In raw mode, press `Ctrl+W` to focus the Comments panel first.
+In rendered mode, use `[` and `]` to select comments without leaving the document. `Up` and `Down` continue to select Markdown blocks.
+
+Press `Ctrl+W` to focus the Comments panel. While it is focused, either `Up` and `Down` or `[` and `]` select comments. Raw mode requires this focus before you can select or change a comment.
+
+Annoterm shows shortcuts for the active pane in one bar at the bottom of the terminal. Press `?` in rendered mode or the Comments panel to show all shortcuts. Press `F1` in raw mode or while you write a comment so that you can insert `?` as text.
 
 | Key | Action |
 | --- | --- |
-| `Up`, `Down` or `[`, `]` | Select a comment |
+| `[`, `]` | Select a comment in rendered mode or the focused Comments panel |
+| `Up`, `Down` | Select a comment only while the Comments panel is focused |
 | Mouse wheel or trackpad | Move through comments when the panel is focused |
+| `j` | Jump to the selected comment |
 | `e` | Edit the selected comment |
 | `x` | Resolve or reopen the selected comment |
 | `d` | Delete the selected comment |
-| `o` | Repair an orphaned comment at the current selection |
-| `Ctrl+W` or `Esc` | Return focus to the document |
+| `o` | Repair an outdated or detached comment at the current selection |
+| `Ctrl+W` | Switch focus between the document and Comments panel |
+| `Esc` | Return focus to the document |
+| `?` | Show all shortcuts |
 
 The Comments panel shows the active focus and keeps the selected comment visible.
+Open comments appear in generated feedback. Resolved comments stay in the sidecar but do not appear in feedback.
 
 ## Document controls
 
@@ -127,8 +155,11 @@ The Comments panel shows the active focus and keeps the selected comment visible
 | Arrow keys | Move the raw cursor |
 | `Shift` and arrow keys | Select source text in raw mode |
 | `Ctrl+Z`, `Ctrl+Y` | Undo or redo a raw edit |
+| `F1` | Show all shortcuts in raw mode |
 | `Down`, `Tab` | Select the next rendered block |
 | `Up`, `Shift+Tab` | Select the previous rendered block |
+| `Left`, `Right` | Scroll the selected rendered table horizontally |
+| Left click | Select a rendered block without scrolling |
 | `a` | Comment on the selected rendered block |
 | `Ctrl+K` | Comment on the raw selection or rendered block |
 | `q` | Quit from the rendered document |
@@ -142,11 +173,17 @@ Annoterm stores comments outside the Markdown source in your home directory. The
 ~/.annoterm/<sha256-of-canonical-document-path>.annotations.json
 ```
 
-The filename is a SHA-256 hash of the canonical document path. This keeps your Git worktree clean. The sidecar stores source ranges, quoted text, nearby context, timestamps, status, and document fingerprints. Annoterm uses this data to re-anchor comments after edits.
+The filename is a SHA-256 hash of the canonical document path. This keeps your Git worktree clean.
+
+The sidecar stores anchors, comments, status, and source snapshots. Annoterm deduplicates snapshots by document fingerprint and removes unreferenced versions. On Unix, the default `~/.annoterm` directory is mode `0700`, and its sidecar and lock files are mode `0600`.
 
 On interactive open, Annoterm checks for a legacy project sidecar. If no user-local sidecar exists, Annoterm copies that file. It leaves the legacy file unchanged. Remove the old `.annoterm` directory after you verify the copy.
 
-If Annoterm cannot find a safe match, it preserves the comment as orphaned. Select new text and press `o` to repair it.
+Annoterm first searches for a safe current match. If that fails, it maps the old range through the saved source snapshot when the diff retains an unchanged boundary. The comment becomes outdated and remains jumpable at an approximate location.
+
+Version 1 sidecars have no snapshots. Annoterm uses the last known line and starts snapshot tracking from the current document.
+
+If the document was completely replaced or has no other usable location, the comment becomes detached. Select new text and press `o` to repair it.
 
 To use a shareable sidecar in a repository, choose its path explicitly:
 

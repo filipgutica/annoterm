@@ -178,7 +178,39 @@ fn styled_list(list: &markdown::mdast::List) -> Vec<Vec<RenderSpan>> {
 }
 
 fn styled_table(table: &markdown::mdast::Table) -> Vec<Vec<RenderSpan>> {
-    let rows = table
+    let rows = styled_table_cells(table);
+    let column_count = rows.iter().map(Vec::len).max().unwrap_or(0);
+    let widths = (0..column_count)
+        .map(|column| {
+            rows.iter()
+                .filter_map(|row| row.get(column))
+                .map(|cell| UnicodeWidthStr::width(cell_text(cell).as_str()))
+                .max()
+                .unwrap_or(0)
+        })
+        .collect::<Vec<_>>();
+
+    rows.iter()
+        .cloned()
+        .map(|row| {
+            let mut output = Vec::new();
+            for (column, cell) in row.into_iter().enumerate() {
+                let width = UnicodeWidthStr::width(cell_text(&cell).as_str());
+                output.extend(cell);
+                if column + 1 < column_count {
+                    output.push(plain_span(
+                        " ".repeat(widths[column].saturating_sub(width) + 2),
+                    ));
+                    output.push(RenderSpan::table_cell_boundary());
+                }
+            }
+            output
+        })
+        .collect()
+}
+
+fn styled_table_cells(table: &markdown::mdast::Table) -> Vec<Vec<Vec<RenderSpan>>> {
+    let mut rows = table
         .children
         .iter()
         .map(|row| match row {
@@ -196,38 +228,14 @@ fn styled_table(table: &markdown::mdast::Table) -> Vec<Vec<RenderSpan>> {
             _ => vec![vec![plain_span(inline(row))]],
         })
         .collect::<Vec<_>>();
-    let column_count = rows.iter().map(Vec::len).max().unwrap_or(0);
-    let widths = (0..column_count)
-        .map(|column| {
-            rows.iter()
-                .filter_map(|row| row.get(column))
-                .map(|cell| UnicodeWidthStr::width(cell_text(cell).as_str()))
-                .max()
-                .unwrap_or(0)
-        })
-        .collect::<Vec<_>>();
-
-    rows.into_iter()
-        .enumerate()
-        .map(|(row_index, row)| {
-            let mut output = Vec::new();
-            for (column, mut cell) in row.into_iter().enumerate() {
-                if row_index == 0 {
-                    for span in &mut cell {
-                        span.style.bold = true;
-                    }
-                }
-                let width = UnicodeWidthStr::width(cell_text(&cell).as_str());
-                output.extend(cell);
-                if column + 1 < column_count {
-                    output.push(plain_span(
-                        " ".repeat(widths[column].saturating_sub(width) + 2),
-                    ));
-                }
+    if let Some(header) = rows.first_mut() {
+        for cell in header {
+            for span in cell {
+                span.style.bold = true;
             }
-            output
-        })
-        .collect()
+        }
+    }
+    rows
 }
 
 fn cell_text(cell: &[RenderSpan]) -> String {

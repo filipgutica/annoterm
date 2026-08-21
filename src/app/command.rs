@@ -5,6 +5,8 @@ use uuid::Uuid;
 /// User-visible state changes. Effects such as saving remain at the UI boundary.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Command {
+    ToggleHelp,
+    CloseHelp,
     ToggleMode,
     ToggleCommentFocus,
     FocusDocument,
@@ -24,10 +26,17 @@ pub enum Command {
     BeginEditSelectedComment,
     AppendCommentCharacter(char),
     DeleteCommentCharacter,
+    MoveCommentCursorLeft,
+    MoveCommentCursorRight,
+    MoveCommentCursorWordLeft,
+    MoveCommentCursorWordRight,
+    MoveCommentCursorStart,
+    MoveCommentCursorEnd,
     SubmitComment,
     CancelComment,
     SelectNextComment,
     SelectPreviousComment,
+    JumpToSelectedComment,
     ToggleSelectedCommentResolution,
     DeleteSelectedComment,
     RepairSelectedOrphan,
