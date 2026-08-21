@@ -22,7 +22,9 @@ Annoterm supports macOS and Linux.
 
 ## Quick start
 
-Install Rust 1.88 or newer. Then clone and install Annoterm:
+Annoterm requires Rust 1.88 or newer. Install Rust with [rustup](https://rustup.rs/) if the `cargo` command is not available.
+
+Clone and install Annoterm:
 
 ```sh
 git clone https://github.com/filipgutica/annoterm.git
@@ -30,13 +32,23 @@ cd annoterm
 cargo install --locked --path .
 ```
 
-Open a Markdown file:
+Cargo installs `annoterm` in its binary directory, which is usually `~/.cargo/bin`. Restart your shell if it cannot find the command.
+
+Verify the installation:
 
 ```sh
-annoterm docs/design.md
+annoterm --help
 ```
 
-Annoterm starts in rendered mode. Use the arrow keys, a mouse wheel, or a left click to select a block. Then press `a` to comment on it.
+Open the included README:
+
+```sh
+annoterm README.md
+```
+
+Annoterm starts in rendered mode. Use `Up`, `Down`, a mouse wheel, or a left click to select a block. Press `a` to comment.
+
+Press `q` when you finish. Annoterm copies the open comments to your clipboard as a prompt for your coding agent.
 
 ## A typical review
 
@@ -44,23 +56,26 @@ Annoterm starts in rendered mode. Use the arrow keys, a mouse wheel, or a left c
 2. Select a rendered block with `Up`, `Down`, or a left click.
 3. Press `a`, write the comment, and press `Enter`.
 4. Repeat for each issue.
-5. Paste the generated feedback prompt into your coding agent.
+5. Press `q` to quit and copy the current feedback.
+6. Paste the feedback into your coding agent.
 
 While you write a comment, use `Left`, `Right`, `Home`, or `End` to move the cursor. Hold `Option` or `Ctrl` with `Left` or `Right` to move between words. `Backspace` removes the previous character.
 
 Annoterm copies the updated prompt after each comment change. When you quit with open annotations, Annoterm copies the prompt again and reports the result. Run this command if another application replaces your clipboard:
 
 ```sh
-annoterm copy-feedback docs/design.md
+annoterm copy-feedback README.md
 ```
 
 You can also export the prompt:
 
 ```sh
-annoterm export docs/design.md --output feedback.md
+annoterm export README.md --output feedback.md
 ```
 
 Add `--force` to replace an existing export.
+
+On Linux, install `wl-copy` for Wayland or `xclip` for X11 if clipboard copy fails. Annoterm uses OSC 52 as a fallback. See [terminal support](docs/terminal-support.md) for details.
 
 ## What the agent receives
 
