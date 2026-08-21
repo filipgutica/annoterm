@@ -32,6 +32,27 @@ pub struct RenderSpan {
     pub style: RenderStyle,
 }
 
+impl RenderSpan {
+    pub(crate) fn table_cell_boundary() -> Self {
+        Self {
+            text: String::new(),
+            style: RenderStyle {
+                dim: true,
+                ..RenderStyle::default()
+            },
+        }
+    }
+
+    pub(crate) fn is_table_cell_boundary(&self) -> bool {
+        self.text.is_empty()
+            && self.style
+                == RenderStyle {
+                    dim: true,
+                    ..RenderStyle::default()
+                }
+    }
+}
+
 /// A rendered block and its original UTF-8 source location.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RenderBlock {

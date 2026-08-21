@@ -23,7 +23,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::{
     annotations::{AnchorState, Annotation, AnnotationStatus},
     app::{App, Command, Mode},
-    markdown::{BlockKind, RenderBlock, RenderStyle},
+    markdown::{BlockKind, RenderBlock, RenderSpan, RenderStyle},
 };
 
 use super::{LayoutMode, layout};
@@ -672,7 +672,7 @@ fn text_cursor_position(text: &str, cursor: usize, width: u16) -> (u16, u16) {
     )
 }
 
-fn document_widget(app: &App, scroll: u16, _width: u16) -> Paragraph<'static> {
+fn document_widget(app: &App, scroll: u16, width: u16) -> Paragraph<'static> {
     let title = match app.mode {
         Mode::Rendered => app
             .rendered
@@ -689,7 +689,7 @@ fn document_widget(app: &App, scroll: u16, _width: u16) -> Paragraph<'static> {
         Mode::Raw => "Raw".into(),
     };
     let text = match app.mode {
-        Mode::Rendered => rendered_text(app),
+        Mode::Rendered => rendered_text_at_width(app, width.saturating_sub(2).max(1)),
         Mode::Raw => raw_text(app),
     };
     Paragraph::new(text)
@@ -790,15 +790,7 @@ fn document_scroll(app: &App, area: Rect, raw_cursor: Option<(u16, u16)>) -> u16
 }
 
 fn rendered_block_height(block: &RenderBlock, width: u16) -> usize {
-    let mut lines = block
-        .lines
-        .iter()
-        .map(|line| Line::from(format!("  {line}")))
-        .collect::<Vec<_>>();
-    if let Some(rule) = heading_rule(block) {
-        lines.push(Line::from(format!("  {rule}")));
-    }
-    Paragraph::new(Text::from(lines))
+    Paragraph::new(Text::from(render_block_lines(block, "  ", false, width)))
         .wrap(Wrap { trim: false })
         .line_count(width)
         .max(1)
@@ -1033,7 +1025,12 @@ fn draw_help(frame: &mut Frame, app: &App) {
     );
 }
 
+#[cfg(test)]
 fn rendered_text(app: &App) -> Text<'static> {
+    rendered_text_at_width(app, u16::MAX)
+}
+
+fn rendered_text_at_width(app: &App, width: u16) -> Text<'static> {
     let mut output = Vec::new();
     for (index, block) in app.rendered.blocks.iter().enumerate() {
         if index > 0 {
@@ -1070,6 +1067,7 @@ fn rendered_text(app: &App) -> Text<'static> {
             block,
             marker,
             index == app.selected_block,
+            width,
         ));
     }
     Text::from(output)
@@ -1079,7 +1077,14 @@ fn render_block_lines(
     block: &RenderBlock,
     marker: &'static str,
     selected: bool,
+    width: u16,
 ) -> Vec<Line<'static>> {
+    if block.kind == BlockKind::Table {
+        let table = table_cells(block);
+        if !table.is_empty() {
+            return render_table_block_lines(&table, marker, selected, width);
+        }
+    }
     let colors = colors_enabled();
     let highlighted = block.language.as_deref().map(|language| {
         highlight_code(
@@ -1144,6 +1149,168 @@ fn render_block_lines(
         lines.push(Line::from(spans));
     }
     lines
+}
+
+fn render_table_block_lines(
+    table: &TableCells,
+    marker: &'static str,
+    selected: bool,
+    width: u16,
+) -> Vec<Line<'static>> {
+    let colors = colors_enabled();
+    responsive_table_lines(table, width.saturating_sub(2))
+        .into_iter()
+        .enumerate()
+        .map(|(line_index, line)| {
+            let mut spans = vec![Span::styled(
+                if line_index == 0 { marker } else { "  " },
+                marker_style(colors),
+            )];
+            spans.extend(
+                line.into_iter()
+                    .map(|span| Span::styled(span.text, inline_style(span.style, colors))),
+            );
+            if selected {
+                let selection = selection_style();
+                for span in &mut spans {
+                    span.style = span.style.patch(selection);
+                }
+            }
+            Line::from(spans)
+        })
+        .collect()
+}
+
+fn responsive_table_lines(table: &TableCells, available_width: u16) -> Vec<Vec<RenderSpan>> {
+    let column_count = table.iter().map(Vec::len).max().unwrap_or(0);
+    if column_count == 0 {
+        return Vec::new();
+    }
+    let widths = (0..column_count)
+        .map(|column| {
+            table
+                .iter()
+                .filter_map(|row| row.get(column))
+                .map(|cell| unicode_width::UnicodeWidthStr::width(table_cell_text(cell).as_str()))
+                .max()
+                .unwrap_or(0)
+        })
+        .collect::<Vec<_>>();
+    let natural_width = widths.iter().sum::<usize>() + column_count.saturating_sub(1) * 3;
+    if natural_width <= usize::from(available_width) {
+        return aligned_table_lines(table, &widths, column_count);
+    }
+    if table.len() == 1 {
+        return table[0].to_vec();
+    }
+    stacked_table_lines(table, column_count)
+}
+
+fn aligned_table_lines(
+    table: &TableCells,
+    widths: &[usize],
+    column_count: usize,
+) -> Vec<Vec<RenderSpan>> {
+    table
+        .iter()
+        .map(|row| {
+            let mut output = Vec::new();
+            for (column, column_width) in widths.iter().enumerate().take(column_count) {
+                let cell = row.get(column).map(Vec::as_slice).unwrap_or_default();
+                let cell_width =
+                    unicode_width::UnicodeWidthStr::width(table_cell_text(cell).as_str());
+                output.extend(cell.iter().cloned());
+                output.push(RenderSpan {
+                    text: " ".repeat(column_width.saturating_sub(cell_width)),
+                    style: RenderStyle::default(),
+                });
+                if column + 1 < column_count {
+                    output.push(RenderSpan {
+                        text: " │ ".into(),
+                        style: RenderStyle {
+                            dim: true,
+                            ..RenderStyle::default()
+                        },
+                    });
+                }
+            }
+            output
+        })
+        .collect()
+}
+
+fn stacked_table_lines(table: &TableCells, column_count: usize) -> Vec<Vec<RenderSpan>> {
+    let Some(headers) = table.first() else {
+        return Vec::new();
+    };
+    let mut output = Vec::new();
+    for (row_index, row) in table.iter().enumerate().skip(1) {
+        if row_index > 1 {
+            output.push(Vec::new());
+        }
+        for column in 0..column_count {
+            let mut line = headers.get(column).cloned().unwrap_or_else(|| {
+                vec![RenderSpan {
+                    text: format!("Column {}", column + 1),
+                    style: RenderStyle::default(),
+                }]
+            });
+            for span in &mut line {
+                span.style.bold = true;
+            }
+            line.push(RenderSpan {
+                text: ": ".into(),
+                style: RenderStyle {
+                    bold: true,
+                    ..RenderStyle::default()
+                },
+            });
+            output.push(line);
+            if let Some(cell) = row.get(column) {
+                output
+                    .last_mut()
+                    .expect("stacked table line was just added")
+                    .extend(cell.iter().cloned());
+            }
+        }
+    }
+    output
+}
+
+type TableCells = Vec<Vec<Vec<RenderSpan>>>;
+
+fn table_cells(block: &RenderBlock) -> TableCells {
+    block
+        .styled_lines
+        .iter()
+        .map(|line| {
+            let mut cells = vec![Vec::new()];
+            for span in line {
+                if span.is_table_cell_boundary() {
+                    trim_table_padding(cells.last_mut().expect("table row has a cell"));
+                    cells.push(Vec::new());
+                } else {
+                    cells
+                        .last_mut()
+                        .expect("table row has a cell")
+                        .push(span.clone());
+                }
+            }
+            cells
+        })
+        .collect()
+}
+
+fn trim_table_padding(cell: &mut Vec<RenderSpan>) {
+    while cell.last().is_some_and(|span| {
+        span.style == RenderStyle::default() && span.text.chars().all(|character| character == ' ')
+    }) {
+        cell.pop();
+    }
+}
+
+fn table_cell_text(cell: &[RenderSpan]) -> String {
+    cell.iter().map(|span| span.text.as_str()).collect()
 }
 
 fn heading_rule(block: &RenderBlock) -> Option<String> {
@@ -1315,8 +1482,9 @@ mod tests {
     use super::{
         block_style, comment_editor_controls, comments_widget, document_scroll, document_widget,
         draw, focus_style, handle_key, handle_key_and_persist, handle_mouse, highlight_code,
-        inline_style, marker_style, raw_cursor_position, raw_text, rendered_document_area,
-        rendered_text, safe_display, shortcut_bar_text,
+        inline_style, marker_style, raw_cursor_position, raw_text, rendered_block_height,
+        rendered_document_area, rendered_text, rendered_text_at_width, safe_display,
+        shortcut_bar_text,
     };
 
     #[test]
@@ -2591,6 +2759,142 @@ mod tests {
         assert!(text.lines[0].spans.iter().any(|span| {
             span.content == "Key" && span.style.add_modifier.contains(Modifier::BOLD)
         }));
+    }
+
+    #[test]
+    fn short_tables_keep_visible_aligned_column_boundaries() {
+        let source = "| Key | Action |\n| --- | --- |\n| q | Quit |\n";
+        let app = App::new(source.into(), parse(source).unwrap());
+        let mut terminal = Terminal::new(TestBackend::new(60, 8)).unwrap();
+
+        terminal
+            .draw(|frame| {
+                let area = frame.area();
+                frame.render_widget(document_widget(&app, 0, area.width), area);
+            })
+            .unwrap();
+
+        let rows = (0..8)
+            .map(|y| {
+                (0..60)
+                    .map(|x| terminal.backend().buffer()[(x, y)].symbol())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>();
+        assert!(rows.iter().any(|row| {
+            row.contains("Key") && row.matches('│').count() >= 3 && row.contains("Action")
+        }));
+        assert!(
+            rows.iter().any(|row| row.contains('q')
+                && row.matches('│').count() >= 3
+                && row.contains("Quit"))
+        );
+    }
+
+    #[test]
+    fn wide_tables_stack_cells_under_header_labels() {
+        let source = "| Concern | TableDataGrid owns | Host owns |\n| --- | --- | --- |\n| Column schema and defaults | Header interpretation, default resolution, and AG Grid column translation | Header declarations for the available columns |\n| Current table configuration | Internal state when uncontrolled, config normalization, grid synchronization, and update events | Controlled current state when supplied |\n";
+        let app = App::new(source.into(), parse(source).unwrap());
+        let mut terminal = Terminal::new(TestBackend::new(80, 18)).unwrap();
+
+        terminal
+            .draw(|frame| {
+                let area = frame.area();
+                frame.render_widget(document_widget(&app, 0, area.width), area);
+            })
+            .unwrap();
+
+        let visible = (0..18)
+            .map(|y| {
+                (0..80)
+                    .map(|x| terminal.backend().buffer()[(x, y)].symbol())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(visible.contains("Concern: Column schema and defaults"));
+        assert!(visible.contains("TableDataGrid owns: Header interpretation"));
+        assert!(visible.contains("Host owns: Header declarations"));
+        assert!(visible.contains("Concern: Current table configuration"));
+    }
+
+    #[test]
+    fn stacked_tables_preserve_inline_styles_in_headers_and_cells() {
+        let source = "| [Owner](owner.md) | Detail |\n| --- | --- |\n| *Package* | A long explanation that forces this table into its stacked layout. |\n";
+        let app = App::new(source.into(), parse(source).unwrap());
+        let text = rendered_text_at_width(&app, 36);
+
+        let owner = text
+            .lines
+            .iter()
+            .flat_map(|line| &line.spans)
+            .find(|span| span.content == "Owner")
+            .unwrap();
+        assert!(owner.style.add_modifier.contains(Modifier::BOLD));
+        assert!(owner.style.add_modifier.contains(Modifier::UNDERLINED));
+        let package = text
+            .lines
+            .iter()
+            .flat_map(|line| &line.spans)
+            .find(|span| span.content == "Package")
+            .unwrap();
+        assert!(package.style.add_modifier.contains(Modifier::ITALIC));
+    }
+
+    #[test]
+    fn wide_header_only_tables_show_each_header_on_its_own_line() {
+        let source = "| A very long first heading | Another long heading |\n| --- | --- |\n";
+        let app = App::new(source.into(), parse(source).unwrap());
+        let text = rendered_text_at_width(&app, 30);
+        let visible = text
+            .lines
+            .iter()
+            .map(|line| {
+                line.spans
+                    .iter()
+                    .map(|span| span.content.as_ref())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            visible
+                .iter()
+                .any(|line| line.contains("A very long first heading"))
+        );
+        assert!(
+            visible
+                .iter()
+                .any(|line| line.contains("Another long heading"))
+        );
+        assert_eq!(visible.iter().filter(|line| line.contains('│')).count(), 0);
+    }
+
+    #[test]
+    fn table_layout_height_matches_click_mapping_at_the_width_boundary() {
+        let source = "| A | B |\n| --- | --- |\n| 12345678901234567 | 12345678901234567 |\n\nFollowing paragraph.\n";
+        let mut app = App::new(source.into(), parse(source).unwrap());
+        let terminal_area = Rect::new(0, 0, 40, 14);
+        let document_area = rendered_document_area(&app, terminal_area).unwrap();
+        let table_height = rendered_block_height(
+            &app.rendered.blocks[0],
+            document_area.width.saturating_sub(2),
+        );
+        assert_eq!(table_height, 2);
+
+        handle_mouse(
+            &mut app,
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 5,
+                row: document_area.y + table_height as u16 + 2,
+                modifiers: KeyModifiers::NONE,
+            },
+            terminal_area,
+        )
+        .unwrap();
+
+        assert_eq!(app.selected_block, 1);
     }
 
     #[test]
