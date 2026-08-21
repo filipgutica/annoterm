@@ -108,20 +108,24 @@ Press `Ctrl+S` to save raw changes. Annoterm saves the document atomically and s
 
 ## Comment controls
 
-In rendered mode, comment controls work immediately. In raw mode, press `Ctrl+W` to focus the Comments panel first.
+In rendered mode, use `[` and `]` to select comments without leaving the document. `Up` and `Down` continue to select Markdown blocks.
+
+Press `Ctrl+W` to focus the Comments panel. While it is focused, either `Up` and `Down` or `[` and `]` select comments. Raw mode requires this focus before you can select or change a comment.
 
 Annoterm shows shortcuts for the active pane in one bar at the bottom of the terminal. Press `?` in rendered mode or the Comments panel to show all shortcuts. Press `F1` in raw mode or while you write a comment so that you can insert `?` as text.
 
 | Key | Action |
 | --- | --- |
-| `Up`, `Down` or `[`, `]` | Select a comment |
+| `[`, `]` | Select a comment in rendered mode or the focused Comments panel |
+| `Up`, `Down` | Select a comment only while the Comments panel is focused |
 | Mouse wheel or trackpad | Move through comments when the panel is focused |
 | `j` | Jump to the selected comment |
 | `e` | Edit the selected comment |
 | `x` | Resolve or reopen the selected comment |
 | `d` | Delete the selected comment |
 | `o` | Repair an outdated or detached comment at the current selection |
-| `Ctrl+W` or `Esc` | Return focus to the document |
+| `Ctrl+W` | Switch focus between the document and Comments panel |
+| `Esc` | Return focus to the document |
 | `?` | Show all shortcuts |
 
 The Comments panel shows the active focus and keeps the selected comment visible.
@@ -139,6 +143,7 @@ Open comments appear in generated feedback. Resolved comments stay in the sideca
 | `F1` | Show all shortcuts in raw mode |
 | `Down`, `Tab` | Select the next rendered block |
 | `Up`, `Shift+Tab` | Select the previous rendered block |
+| `Left`, `Right` | Scroll the selected rendered table horizontally |
 | Left click | Select a rendered block without scrolling |
 | `a` | Comment on the selected rendered block |
 | `Ctrl+K` | Comment on the raw selection or rendered block |

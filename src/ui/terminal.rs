@@ -28,6 +28,8 @@ use crate::{
 
 use super::{LayoutMode, layout};
 
+const TABLE_COLUMN_MAX_WIDTH: usize = 32;
+
 struct MouseCapture {
     active: bool,
 }
@@ -309,6 +311,14 @@ where
         KeyCode::Up | KeyCode::BackTab if app.mode == Mode::Rendered => {
             app.apply(Command::MovePreviousBlock)
         }
+        KeyCode::Left if app.mode == Mode::Rendered && selected_block_is_table(app) => {
+            app.scroll_table_horizontally(-1);
+            Ok(())
+        }
+        KeyCode::Right if app.mode == Mode::Rendered && selected_block_is_table(app) => {
+            app.scroll_table_horizontally(1);
+            Ok(())
+        }
         KeyCode::Backspace => app.apply(Command::DeleteBackward),
         KeyCode::Enter if app.mode == Mode::Raw => app.apply(Command::Insert('\n')),
         KeyCode::Tab if app.mode == Mode::Raw => app.apply(Command::Insert('\t')),
@@ -498,6 +508,8 @@ fn draw_document_pane(frame: &mut Frame, app: &mut App, area: Rect) {
         .then(|| raw_cursor_position(app, area.width.saturating_sub(2).max(1)));
     let scroll = document_scroll(app, area, raw_cursor);
     if app.mode == Mode::Rendered {
+        let width = area.width.saturating_sub(2).max(1);
+        app.remember_table_horizontal_extent(selected_table_max_scroll(app, width));
         app.remember_rendered_scroll(scroll, area.width, area.height);
     }
     frame.render_widget(document_widget(app, scroll, area.width), area);
@@ -790,7 +802,7 @@ fn document_scroll(app: &App, area: Rect, raw_cursor: Option<(u16, u16)>) -> u16
 }
 
 fn rendered_block_height(block: &RenderBlock, width: u16) -> usize {
-    Paragraph::new(Text::from(render_block_lines(block, "  ", false, width)))
+    Paragraph::new(Text::from(render_block_lines(block, "  ", false, width, 0)))
         .wrap(Wrap { trim: false })
         .line_count(width)
         .max(1)
@@ -891,6 +903,13 @@ fn draw_shortcut_bar(frame: &mut Frame, app: &App, area: Rect) {
     );
 }
 
+fn selected_block_is_table(app: &App) -> bool {
+    app.rendered
+        .blocks
+        .get(app.selected_block)
+        .is_some_and(|block| block.kind == BlockKind::Table)
+}
+
 fn shortcut_bar_text(app: &App, width: u16) -> String {
     let candidates = if app.comments_focused() {
         let resolution = app
@@ -902,7 +921,7 @@ fn shortcut_bar_text(app: &App, width: u16) -> String {
             });
         vec![
             format!(
-                "↑/↓ or [/] Select · j Jump · x {resolution} · e Edit · d Delete · Esc Document · ? Help"
+                "↑/↓ or [/] Select · j Jump · e Edit · x {resolution} · d Delete · Esc Document · ? Help"
             ),
             format!("↑/↓ Select · j Jump · x {resolution} · e Edit · Esc Document · ? Help"),
             format!("↑/↓ · j Jump · x {resolution} · Esc · ? Help"),
@@ -911,22 +930,44 @@ fn shortcut_bar_text(app: &App, width: u16) -> String {
     } else if app.mode == Mode::Raw {
         vec![
             "Arrows/wheel Move · Shift+arrows Select · Ctrl+S Save · Ctrl+K Comment · Ctrl+W Comments · Ctrl+R Render · F1 Help".into(),
-            "Arrows Move · Shift+arrows Select · Ctrl+S Save · Ctrl+K Comment · F1 Help".into(),
-            "Arrows · Shift+↑/↓ · Ctrl+S · Ctrl+K · F1 Help".into(),
-            "Arrows · Shift+↑↓ · ^S · F1".into(),
+            "Arrows Move · Shift+arrows Select · Ctrl+K Comment · Ctrl+W Comments · F1 Help".into(),
+            "Arrows · Shift+↑/↓ · Ctrl+K Comment · Ctrl+W Comments · F1".into(),
+            "^K Comment · ^W Comments · F1".into(),
         ]
     } else if app.comments.is_empty() {
+        let table = if selected_block_is_table(app) {
+            "←/→ Table · "
+        } else {
+            ""
+        };
         vec![
-            "↑/↓/wheel Move · a Comment · Ctrl+R Raw · ? Help".into(),
-            "↑/↓ Move · a Comment · ? Help".into(),
+            format!("↑/↓/wheel Blocks · {table}a Comment · Ctrl+R Raw · ? Help"),
+            format!("↑/↓ Blocks · {table}a Comment · ? Help"),
+            "↑/↓ Blocks · a Comment · ? Help".into(),
             "↑/↓ · a Comment · ? Help".into(),
         ]
     } else {
+        let resolution = app
+            .selected_comment
+            .and_then(|index| app.comments.get(index))
+            .map_or("Resolve", |comment| match comment.status {
+                AnnotationStatus::Open => "Resolve",
+                AnnotationStatus::Resolved => "Reopen",
+            });
+        let table = if selected_block_is_table(app) {
+            "←/→ Table · "
+        } else {
+            ""
+        };
         vec![
-            "↑/↓/wheel Move · a Comment · [/] Comments · j Jump · Ctrl+R Raw · ? Help".into(),
-            "↑/↓ Move · a Comment · [/] Comments · j Jump · ? Help".into(),
-            "↑/↓ · a Comment · [/] · j Jump · ? Help".into(),
-            "↑/↓ · a · [/] · j · ? Help".into(),
+            format!(
+                "↑/↓/wheel Blocks · {table}a Comment · [/] Comments · j Jump · e Edit · x {resolution} · d Delete · Ctrl+W Focus · Ctrl+R Raw · ? Help"
+            ),
+            format!(
+                "↑/↓ Blocks · {table}a Comment · [/] Comments · j Jump · e Edit · x {resolution} · ? Help"
+            ),
+            "↑/↓ Blocks · a Comment · [/] Comments · j Jump · ? Help".into(),
+            "↑/↓ Blocks · a · [/] Comments · j · ? Help".into(),
         ]
     };
     candidates
@@ -950,9 +991,11 @@ fn draw_help(frame: &mut Frame, app: &App) {
         } else if app.comment_draft.is_some() {
             "←/→ · Enter · Esc Cancel"
         } else if app.mode == Mode::Raw {
-            "Arrows · Shift+↑/↓ Select"
+            "^K Comment · ^W Comments"
+        } else if selected_block_is_table(app) {
+            "↑/↓ Blocks · ←/→ Table"
         } else {
-            "↑/↓ · a Comment · j Jump"
+            "↑/↓ Blocks · a Comment"
         };
         let text = Text::from(vec![
             Line::from("Compact help"),
@@ -988,7 +1031,7 @@ fn draw_help(frame: &mut Frame, app: &App) {
             Span::raw("                           "),
             Span::styled("Comments", Style::default().add_modifier(Modifier::BOLD)),
         ]),
-        Line::from("? Help (F1 in raw)               ↑/↓ or [/] Select"),
+        Line::from("? Help (F1 in raw)               Focused: ↑/↓ or [/] Select"),
         Line::from("Esc Close / quit                  j Jump"),
         Line::from("Ctrl+R Rendered / raw              e or Enter Edit"),
         Line::from("Ctrl+W Focus comments              x Resolve / reopen"),
@@ -1001,11 +1044,11 @@ fn draw_help(frame: &mut Frame, app: &App) {
             Span::raw("                 "),
             Span::styled("Raw editor", Style::default().add_modifier(Modifier::BOLD)),
         ]),
-        Line::from("↑/↓, Tab, wheel Move               Arrows Move cursor"),
-        Line::from("a Comment block                    Shift+arrows Select"),
-        Line::from("[/] Select comment                 Ctrl+S Save"),
+        Line::from("↑/↓, Tab, wheel Select block       Arrows Move cursor"),
+        Line::from("←/→ Table · a Comment block         Shift+arrows Select"),
+        Line::from("[/] Select comment                 Ctrl+W Focus comments"),
         Line::from("j Jump to comment                  Ctrl+K Comment selection"),
-        Line::from("                                   Ctrl+Z/Y Undo / redo"),
+        Line::from("                                   Ctrl+S Save · Ctrl+Z/Y Undo"),
         Line::from(Span::styled(
             "Comment editor",
             Style::default().add_modifier(Modifier::BOLD),
@@ -1068,6 +1111,11 @@ fn rendered_text_at_width(app: &App, width: u16) -> Text<'static> {
             marker,
             index == app.selected_block,
             width,
+            if index == app.selected_block {
+                app.table_horizontal_scroll()
+            } else {
+                0
+            },
         ));
     }
     Text::from(output)
@@ -1078,11 +1126,18 @@ fn render_block_lines(
     marker: &'static str,
     selected: bool,
     width: u16,
+    table_horizontal_scroll: usize,
 ) -> Vec<Line<'static>> {
     if block.kind == BlockKind::Table {
         let table = table_cells(block);
         if !table.is_empty() {
-            return render_table_block_lines(&table, marker, selected, width);
+            return render_table_block_lines(
+                &table,
+                marker,
+                selected,
+                width,
+                table_horizontal_scroll,
+            );
         }
     }
     let colors = colors_enabled();
@@ -1156,9 +1211,10 @@ fn render_table_block_lines(
     marker: &'static str,
     selected: bool,
     width: u16,
+    horizontal_scroll: usize,
 ) -> Vec<Line<'static>> {
     let colors = colors_enabled();
-    responsive_table_lines(table, width.saturating_sub(2))
+    scrollable_table_lines(table, width.saturating_sub(2), horizontal_scroll)
         .into_iter()
         .enumerate()
         .map(|(line_index, line)| {
@@ -1181,100 +1237,292 @@ fn render_table_block_lines(
         .collect()
 }
 
-fn responsive_table_lines(table: &TableCells, available_width: u16) -> Vec<Vec<RenderSpan>> {
-    let column_count = table.iter().map(Vec::len).max().unwrap_or(0);
-    if column_count == 0 {
+fn scrollable_table_lines(
+    table: &TableCells,
+    available_width: u16,
+    horizontal_scroll: usize,
+) -> Vec<Vec<RenderSpan>> {
+    let widths = table_column_widths(table);
+    if widths.is_empty() {
         return Vec::new();
     }
-    let widths = (0..column_count)
-        .map(|column| {
-            table
-                .iter()
-                .filter_map(|row| row.get(column))
-                .map(|cell| unicode_width::UnicodeWidthStr::width(table_cell_text(cell).as_str()))
-                .max()
-                .unwrap_or(0)
-        })
-        .collect::<Vec<_>>();
-    let natural_width = widths.iter().sum::<usize>() + column_count.saturating_sub(1) * 3;
-    if natural_width <= usize::from(available_width) {
-        return aligned_table_lines(table, &widths, column_count);
-    }
-    if table.len() == 1 {
-        return table[0].to_vec();
-    }
-    stacked_table_lines(table, column_count)
-}
+    let canvas = bordered_table_lines(table, &widths, 1);
+    let available_width = usize::from(available_width.max(1));
+    let canvas_width = table_canvas_width(&widths);
+    let max_scroll = canvas_width.saturating_sub(available_width);
+    let visible_width = available_width.min(canvas_width);
+    let horizontal_scroll = horizontal_scroll.min(max_scroll);
+    let has_left_overflow = horizontal_scroll > 0;
+    let has_right_overflow = horizontal_scroll < max_scroll;
 
-fn aligned_table_lines(
-    table: &TableCells,
-    widths: &[usize],
-    column_count: usize,
-) -> Vec<Vec<RenderSpan>> {
-    table
-        .iter()
-        .map(|row| {
-            let mut output = Vec::new();
-            for (column, column_width) in widths.iter().enumerate().take(column_count) {
-                let cell = row.get(column).map(Vec::as_slice).unwrap_or_default();
-                let cell_width =
-                    unicode_width::UnicodeWidthStr::width(table_cell_text(cell).as_str());
-                output.extend(cell.iter().cloned());
-                output.push(RenderSpan {
-                    text: " ".repeat(column_width.saturating_sub(cell_width)),
-                    style: RenderStyle::default(),
-                });
-                if column + 1 < column_count {
-                    output.push(RenderSpan {
-                        text: " │ ".into(),
-                        style: RenderStyle {
-                            dim: true,
-                            ..RenderStyle::default()
-                        },
-                    });
-                }
+    canvas
+        .into_iter()
+        .enumerate()
+        .map(|(line_index, line)| {
+            let mut visible = clip_table_line(&line, horizontal_scroll, visible_width);
+            if line_index == 0 && has_left_overflow {
+                visible = replace_table_line_start(visible, visible_width, "‹");
             }
-            output
+            if line_index == 0 && has_right_overflow {
+                visible = replace_table_line_end(visible, visible_width, "›");
+            }
+            visible
         })
         .collect()
 }
 
-fn stacked_table_lines(table: &TableCells, column_count: usize) -> Vec<Vec<RenderSpan>> {
-    let Some(headers) = table.first() else {
-        return Vec::new();
+fn table_column_widths(table: &TableCells) -> Vec<usize> {
+    let column_count = table.iter().map(Vec::len).max().unwrap_or(0);
+    (0..column_count)
+        .map(|column| {
+            let desired = table
+                .iter()
+                .filter_map(|row| row.get(column))
+                .map(|cell| unicode_width::UnicodeWidthStr::width(table_cell_text(cell).as_str()))
+                .max()
+                .unwrap_or(1)
+                .max(1);
+            let minimum = table
+                .iter()
+                .filter_map(|row| row.get(column))
+                .map(|cell| table_cell_minimum_width(cell))
+                .max()
+                .unwrap_or(1);
+            desired
+                .min(TABLE_COLUMN_MAX_WIDTH.max(minimum))
+                .max(minimum)
+        })
+        .collect()
+}
+
+fn table_canvas_width(widths: &[usize]) -> usize {
+    widths.iter().sum::<usize>() + widths.len() * 3 + 1
+}
+
+fn selected_table_max_scroll(app: &App, width: u16) -> usize {
+    let Some(block) = app.rendered.blocks.get(app.selected_block) else {
+        return 0;
     };
-    let mut output = Vec::new();
-    for (row_index, row) in table.iter().enumerate().skip(1) {
-        if row_index > 1 {
-            output.push(Vec::new());
+    if block.kind != BlockKind::Table {
+        return 0;
+    }
+    let widths = table_column_widths(&table_cells(block));
+    table_canvas_width(&widths).saturating_sub(usize::from(width.saturating_sub(2).max(1)))
+}
+
+fn bordered_table_lines(
+    table: &TableCells,
+    widths: &[usize],
+    padding: usize,
+) -> Vec<Vec<RenderSpan>> {
+    let mut output = vec![table_border(widths, padding, '┌', '┬', '┐')];
+    for (row_index, row) in table.iter().enumerate() {
+        if row_index > 0 {
+            output.push(table_border(widths, padding, '├', '┼', '┤'));
         }
-        for column in 0..column_count {
-            let mut line = headers.get(column).cloned().unwrap_or_else(|| {
-                vec![RenderSpan {
-                    text: format!("Column {}", column + 1),
-                    style: RenderStyle::default(),
-                }]
-            });
-            for span in &mut line {
-                span.style.bold = true;
+        let cells = widths
+            .iter()
+            .enumerate()
+            .map(|(column, width)| {
+                wrap_table_cell(
+                    row.get(column).map(Vec::as_slice).unwrap_or_default(),
+                    *width,
+                )
+            })
+            .collect::<Vec<_>>();
+        let row_height = cells.iter().map(Vec::len).max().unwrap_or(1);
+        for line_index in 0..row_height {
+            let mut line = vec![table_rule_span("│")];
+            for (column, width) in widths.iter().enumerate() {
+                push_table_space(&mut line, padding);
+                let cell_line = cells[column]
+                    .get(line_index)
+                    .map(Vec::as_slice)
+                    .unwrap_or_default();
+                line.extend(cell_line.iter().cloned());
+                let cell_width =
+                    unicode_width::UnicodeWidthStr::width(table_cell_text(cell_line).as_str());
+                push_table_space(&mut line, width.saturating_sub(cell_width) + padding);
+                line.push(table_rule_span("│"));
             }
-            line.push(RenderSpan {
-                text: ": ".into(),
-                style: RenderStyle {
-                    bold: true,
-                    ..RenderStyle::default()
-                },
-            });
             output.push(line);
-            if let Some(cell) = row.get(column) {
-                output
-                    .last_mut()
-                    .expect("stacked table line was just added")
-                    .extend(cell.iter().cloned());
-            }
         }
     }
+    output.push(table_border(widths, padding, '└', '┴', '┘'));
     output
+}
+
+fn clip_table_line(line: &[RenderSpan], start: usize, width: usize) -> Vec<RenderSpan> {
+    let end = start.saturating_add(width);
+    let mut output = Vec::new();
+    let mut source_column = 0usize;
+    let mut output_width = 0usize;
+    for span in line {
+        for grapheme in UnicodeSegmentation::graphemes(span.text.as_str(), true) {
+            let grapheme_width = unicode_width::UnicodeWidthStr::width(grapheme);
+            let grapheme_end = source_column.saturating_add(grapheme_width);
+            if grapheme_width == 0 && (start..end).contains(&source_column) {
+                push_table_grapheme(&mut output, grapheme, span.style);
+            } else if grapheme_end > start && source_column < end {
+                let visible_start = source_column.max(start);
+                let visible_end = grapheme_end.min(end);
+                if source_column < start || grapheme_end > end {
+                    push_table_space(&mut output, visible_end.saturating_sub(visible_start));
+                } else {
+                    push_table_grapheme(&mut output, grapheme, span.style);
+                }
+                output_width += visible_end.saturating_sub(visible_start);
+            }
+            source_column = grapheme_end;
+            if source_column >= end {
+                break;
+            }
+        }
+        if source_column >= end {
+            break;
+        }
+    }
+    push_table_space(&mut output, width.saturating_sub(output_width));
+    output
+}
+
+fn replace_table_line_start(
+    line: Vec<RenderSpan>,
+    width: usize,
+    indicator: &str,
+) -> Vec<RenderSpan> {
+    let mut output = vec![table_rule_span(indicator)];
+    output.extend(clip_table_line(&line, 1, width.saturating_sub(1)));
+    output
+}
+
+fn replace_table_line_end(line: Vec<RenderSpan>, width: usize, indicator: &str) -> Vec<RenderSpan> {
+    let mut output = clip_table_line(&line, 0, width.saturating_sub(1));
+    output.push(table_rule_span(indicator));
+    output
+}
+
+fn table_border(
+    widths: &[usize],
+    padding: usize,
+    left: char,
+    junction: char,
+    right: char,
+) -> Vec<RenderSpan> {
+    let mut border = left.to_string();
+    for (column, width) in widths.iter().enumerate() {
+        border.push_str(&"─".repeat(width + padding * 2));
+        border.push(if column + 1 == widths.len() {
+            right
+        } else {
+            junction
+        });
+    }
+    vec![table_rule_span(border)]
+}
+
+fn wrap_table_cell(cell: &[RenderSpan], width: usize) -> Vec<Vec<RenderSpan>> {
+    let graphemes = cell
+        .iter()
+        .flat_map(|span| {
+            UnicodeSegmentation::graphemes(span.text.as_str(), true).map(|grapheme| {
+                (
+                    grapheme.to_owned(),
+                    span.style,
+                    unicode_width::UnicodeWidthStr::width(grapheme),
+                    grapheme.chars().all(char::is_whitespace),
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut lines = Vec::new();
+    let mut line = Vec::new();
+    let mut line_width = 0;
+    let mut index = 0;
+
+    while index < graphemes.len() {
+        let whitespace_start = index;
+        while index < graphemes.len() && graphemes[index].3 {
+            index += 1;
+        }
+        let word_start = index;
+        while index < graphemes.len() && !graphemes[index].3 {
+            index += 1;
+        }
+        if word_start == index {
+            break;
+        }
+        let whitespace_width = graphemes[whitespace_start..word_start]
+            .iter()
+            .map(|grapheme| grapheme.2)
+            .sum::<usize>();
+        let word_width = graphemes[word_start..index]
+            .iter()
+            .map(|grapheme| grapheme.2)
+            .sum::<usize>();
+
+        if line_width > 0 && line_width + whitespace_width + word_width > width {
+            lines.push(std::mem::take(&mut line));
+            line_width = 0;
+        } else if line_width > 0 {
+            for grapheme in &graphemes[whitespace_start..word_start] {
+                push_table_grapheme(&mut line, &grapheme.0, grapheme.1);
+                line_width += grapheme.2;
+            }
+        }
+
+        for grapheme in &graphemes[word_start..index] {
+            if line_width > 0 && line_width + grapheme.2 > width {
+                lines.push(std::mem::take(&mut line));
+                line_width = 0;
+            }
+            push_table_grapheme(&mut line, &grapheme.0, grapheme.1);
+            line_width += grapheme.2;
+        }
+    }
+    if !line.is_empty() || lines.is_empty() {
+        lines.push(line);
+    }
+    lines
+}
+
+fn table_cell_minimum_width(cell: &[RenderSpan]) -> usize {
+    cell.iter()
+        .flat_map(|span| UnicodeSegmentation::graphemes(span.text.as_str(), true))
+        .map(unicode_width::UnicodeWidthStr::width)
+        .max()
+        .unwrap_or(1)
+        .max(1)
+}
+
+fn push_table_grapheme(line: &mut Vec<RenderSpan>, text: &str, style: RenderStyle) {
+    if let Some(span) = line.last_mut().filter(|span| span.style == style) {
+        span.text.push_str(text);
+    } else {
+        line.push(RenderSpan {
+            text: text.to_owned(),
+            style,
+        });
+    }
+}
+
+fn push_table_space(line: &mut Vec<RenderSpan>, width: usize) {
+    if width > 0 {
+        line.push(RenderSpan {
+            text: " ".repeat(width),
+            style: RenderStyle::default(),
+        });
+    }
+}
+
+fn table_rule_span(text: impl Into<String>) -> RenderSpan {
+    RenderSpan {
+        text: text.into(),
+        style: RenderStyle {
+            dim: true,
+            ..RenderStyle::default()
+        },
+    }
 }
 
 type TableCells = Vec<Vec<Vec<RenderSpan>>>;
@@ -1520,6 +1768,25 @@ mod tests {
     }
 
     #[test]
+    fn rendered_shortcuts_distinguish_blocks_tables_and_comments() {
+        let source = "| A | B | C | D |\n| --- | --- | --- | --- |\n| one | two | three | four |\n";
+        let mut app = App::new(source.into(), parse(source).unwrap());
+        app.apply(Command::AddComment("Review this".into()))
+            .unwrap();
+
+        let document = shortcut_bar_text(&app, 180);
+        assert!(document.contains("↑/↓/wheel Blocks"));
+        assert!(document.contains("←/→ Table"));
+        assert!(document.contains("[/] Comments"));
+        assert!(document.contains("e Edit"));
+        assert!(document.contains("x Resolve"));
+
+        app.apply(Command::ToggleCommentFocus).unwrap();
+        let comments = shortcut_bar_text(&app, 180);
+        assert!(comments.contains("↑/↓ or [/] Select"));
+    }
+
+    #[test]
     fn question_mark_opens_a_complete_help_overlay_and_escape_closes_it() {
         let source = "# Heading\n";
         let mut app = App::new(source.into(), parse(source).unwrap());
@@ -1621,6 +1888,27 @@ mod tests {
         assert!(visible.contains("Compact help"));
         assert!(visible.contains("Resize to 76×18"));
         assert!(!visible.contains("Rendered document"));
+    }
+
+    #[test]
+    fn complete_help_fits_at_the_full_layout_threshold() {
+        let source = "| A | B |\n| --- | --- |\n| one | two |\n";
+        let mut app = App::new(source.into(), parse(source).unwrap());
+        app.apply(Command::ToggleHelp).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(76, 18)).unwrap();
+
+        terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+
+        let visible = terminal
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+        assert!(visible.contains("←/→ Table · a Comment block"));
+        assert!(visible.contains("Ctrl+W Focus comments"));
+        assert!(visible.contains("Option/Ctrl+←/→ Words"));
     }
 
     #[test]
@@ -2094,7 +2382,16 @@ mod tests {
         let footer = (0..30)
             .map(|x| terminal.backend().buffer()[(x, 5)].symbol())
             .collect::<String>();
-        assert!(footer.contains("Arrows · Shift+↑↓ · ^S · F1"));
+        assert!(footer.contains("^K Comment · ^W Comments · F1"));
+    }
+
+    #[test]
+    fn raw_shortcut_bar_keeps_comment_focus_discoverable() {
+        let source = "# Heading\n";
+        let mut app = App::new(source.into(), parse(source).unwrap());
+        app.apply(Command::ToggleMode).unwrap();
+
+        assert!(shortcut_bar_text(&app, 80).contains("Ctrl+W Comments"));
     }
 
     #[test]
@@ -2756,7 +3053,7 @@ mod tests {
         let app = App::new(source.into(), parse(source).unwrap());
         let text = rendered_text(&app);
 
-        assert!(text.lines[0].spans.iter().any(|span| {
+        assert!(text.lines.iter().flat_map(|line| &line.spans).any(|span| {
             span.content == "Key" && span.style.add_modifier.contains(Modifier::BOLD)
         }));
     }
@@ -2792,7 +3089,7 @@ mod tests {
     }
 
     #[test]
-    fn wide_tables_stack_cells_under_header_labels() {
+    fn wide_tables_keep_a_bordered_grid_and_wrap_cells() {
         let source = "| Concern | TableDataGrid owns | Host owns |\n| --- | --- | --- |\n| Column schema and defaults | Header interpretation, default resolution, and AG Grid column translation | Header declarations for the available columns |\n| Current table configuration | Internal state when uncontrolled, config normalization, grid synchronization, and update events | Controlled current state when supplied |\n";
         let app = App::new(source.into(), parse(source).unwrap());
         let mut terminal = Terminal::new(TestBackend::new(80, 18)).unwrap();
@@ -2812,17 +3109,46 @@ mod tests {
             })
             .collect::<Vec<_>>()
             .join("\n");
-        assert!(visible.contains("Concern: Column schema and defaults"));
-        assert!(visible.contains("TableDataGrid owns: Header interpretation"));
-        assert!(visible.contains("Host owns: Header declarations"));
-        assert!(visible.contains("Concern: Current table configuration"));
+        assert!(visible.contains('┌'));
+        assert!(visible.contains('┬'));
+        assert!(visible.contains('┼'));
+        assert!(visible.contains('┘'));
+        assert!(visible.contains("Concern"), "{visible}");
+        assert!(visible.contains("TableDataGrid"), "{visible}");
+        assert!(visible.contains("Host owns"), "{visible}");
+        assert!(
+            visible.lines().any(|line| line.matches('│').count() >= 4),
+            "{visible}"
+        );
+        assert!(
+            visible
+                .lines()
+                .any(|line| { line.contains("Column schema") && line.matches('│').count() >= 4 })
+        );
+        assert!(visible.lines().any(|line| {
+            line.contains("Header interpretation") && line.matches('│').count() >= 4
+        }));
     }
 
     #[test]
-    fn stacked_tables_preserve_inline_styles_in_headers_and_cells() {
-        let source = "| [Owner](owner.md) | Detail |\n| --- | --- |\n| *Package* | A long explanation that forces this table into its stacked layout. |\n";
+    fn wrapped_table_cells_preserve_inline_styles() {
+        let source = "| [Owner](owner.md) | Detail |\n| --- | --- |\n| *Package* | A long explanation that forces the table cells to wrap. |\n";
         let app = App::new(source.into(), parse(source).unwrap());
         let text = rendered_text_at_width(&app, 36);
+
+        assert!(text.lines.iter().all(|line| {
+            let content = line
+                .spans
+                .iter()
+                .map(|span| span.content.as_ref())
+                .collect::<String>();
+            unicode_width::UnicodeWidthStr::width(content.as_str()) <= 36
+        }));
+        assert!(
+            text.lines
+                .iter()
+                .any(|line| { line.spans.iter().any(|span| span.content.contains('┌')) })
+        );
 
         let owner = text
             .lines
@@ -2842,7 +3168,7 @@ mod tests {
     }
 
     #[test]
-    fn wide_header_only_tables_show_each_header_on_its_own_line() {
+    fn wide_header_only_tables_show_horizontal_overflow() {
         let source = "| A very long first heading | Another long heading |\n| --- | --- |\n";
         let app = App::new(source.into(), parse(source).unwrap());
         let text = rendered_text_at_width(&app, 30);
@@ -2857,17 +3183,146 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
+        assert!(visible.iter().any(|line| line.contains("A very long")));
+        assert!(visible.iter().any(|line| line.contains("first")));
+        assert!(visible.iter().any(|line| line.contains("heading")));
+        assert!(visible.iter().any(|line| line.contains('┌')));
+        assert!(visible.iter().any(|line| line.contains('›')));
+        assert!(!visible.iter().any(|line| line.contains("Another")));
+    }
+
+    #[test]
+    fn many_column_tables_use_one_scrollable_canvas_that_fits() {
+        let headers = (0..15)
+            .map(|column| format!("C{column}"))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        let dividers = std::iter::repeat_n("---", 15)
+            .collect::<Vec<_>>()
+            .join(" | ");
+        let values = (0..15)
+            .map(|column| column.to_string())
+            .collect::<Vec<_>>()
+            .join(" | ");
+        let source = format!("| {headers} |\n| {dividers} |\n| {values} |\n");
+        let app = App::new(source.clone(), parse(&source).unwrap());
+        let text = rendered_text_at_width(&app, 30);
+        let visible = text
+            .lines
+            .iter()
+            .map(|line| {
+                line.spans
+                    .iter()
+                    .map(|span| span.content.as_ref())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(visible.iter().filter(|line| line.contains('┌')).count(), 1);
+        assert!(visible.iter().any(|line| line.contains("C0")));
+        assert!(!visible.iter().any(|line| line.contains("C14")));
+        assert!(visible.iter().any(|line| line.contains('›')));
         assert!(
             visible
                 .iter()
-                .any(|line| line.contains("A very long first heading"))
+                .all(|line| { unicode_width::UnicodeWidthStr::width(line.as_str()) <= 30 })
         );
-        assert!(
-            visible
+    }
+
+    #[test]
+    fn selected_table_scrolls_horizontally_without_moving_blocks() {
+        let headers = (0..8)
+            .map(|column| format!("Column {column}"))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        let dividers = std::iter::repeat_n("---", 8)
+            .collect::<Vec<_>>()
+            .join(" | ");
+        let values = (0..8)
+            .map(|column| format!("value-{column}"))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        let source = format!("| {headers} |\n| {dividers} |\n| {values} |\n");
+        let mut app = App::new(source.clone(), parse(&source).unwrap());
+        let mut terminal = Terminal::new(TestBackend::new(50, 12)).unwrap();
+        let mut save = |_: &str| Ok("sha256:saved".into());
+
+        terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+        let before = (1..11)
+            .map(|y| {
+                (0..50)
+                    .map(|x| terminal.backend().buffer()[(x, y)].symbol())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let top_border = (0..50)
+            .map(|x| terminal.backend().buffer()[(x, 2)].symbol())
+            .collect::<String>();
+        assert_eq!(top_border.matches('›').count(), 2, "{top_border}");
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Right, KeyModifiers::NONE),
+            &mut save,
+        )
+        .unwrap();
+        terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+        let after = (1..11)
+            .map(|y| {
+                (0..50)
+                    .map(|x| terminal.backend().buffer()[(x, y)].symbol())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert_ne!(before, after);
+        assert_eq!(terminal.backend().buffer()[(3, 2)].symbol(), "‹");
+        assert_eq!(app.selected_block, 0);
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Left, KeyModifiers::NONE),
+            &mut save,
+        )
+        .unwrap();
+        terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+        let restored = (1..11)
+            .map(|y| {
+                (0..50)
+                    .map(|x| terminal.backend().buffer()[(x, y)].symbol())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert_eq!(restored, before);
+    }
+
+    #[test]
+    fn narrow_table_columns_keep_wide_unicode_inside_their_borders() {
+        let headers = (0..10)
+            .map(|column| format!("C{column}"))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        let dividers = std::iter::repeat_n("---", 10)
+            .collect::<Vec<_>>()
+            .join(" | ");
+        let values = std::iter::repeat_n("界", 10)
+            .collect::<Vec<_>>()
+            .join(" | ");
+        let source = format!("| {headers} |\n| {dividers} |\n| {values} |\n");
+        let app = App::new(source.clone(), parse(&source).unwrap());
+        let text = rendered_text_at_width(&app, 30);
+
+        assert!(text.lines.iter().all(|line| {
+            let content = line
+                .spans
                 .iter()
-                .any(|line| line.contains("Another long heading"))
-        );
-        assert_eq!(visible.iter().filter(|line| line.contains('│')).count(), 0);
+                .map(|span| span.content.as_ref())
+                .collect::<String>();
+            unicode_width::UnicodeWidthStr::width(content.as_str()) <= 30
+        }));
     }
 
     #[test]
@@ -2880,7 +3335,7 @@ mod tests {
             &app.rendered.blocks[0],
             document_area.width.saturating_sub(2),
         );
-        assert_eq!(table_height, 2);
+        assert_eq!(table_height, 5);
 
         handle_mouse(
             &mut app,

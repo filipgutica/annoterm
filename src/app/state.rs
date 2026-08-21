@@ -31,6 +31,7 @@ enum CommentDraftMode {
 }
 
 const HISTORY_LIMIT: usize = 100;
+const TABLE_SCROLL_STEP: usize = 4;
 
 /// UI state shared by raw and rendered modes.
 #[derive(Clone, Debug)]
@@ -40,6 +41,8 @@ pub struct App {
     pub mode: Mode,
     pub cursor: usize,
     pub selected_block: usize,
+    table_horizontal_scroll: usize,
+    table_max_horizontal_scroll: usize,
     rendered_scroll_override: Option<(u16, u16, u16)>,
     preserve_rendered_scroll_once: bool,
     pub raw_selection: Option<Range<usize>>,
@@ -69,6 +72,8 @@ impl App {
             mode: Mode::Rendered,
             cursor: 0,
             selected_block: 0,
+            table_horizontal_scroll: 0,
+            table_max_horizontal_scroll: 0,
             rendered_scroll_override: None,
             preserve_rendered_scroll_once: false,
             raw_selection: None,
@@ -138,7 +143,7 @@ impl App {
         width: u16,
         height: u16,
     ) {
-        self.selected_block = index.min(self.rendered.blocks.len().saturating_sub(1));
+        self.select_rendered_block(index);
         self.rendered_scroll_override = Some((scroll, width, height));
         self.preserve_rendered_scroll_once = true;
     }
@@ -146,6 +151,28 @@ impl App {
     pub(crate) fn remember_rendered_scroll(&mut self, scroll: u16, width: u16, height: u16) {
         self.rendered_scroll_override = Some((scroll, width, height));
         self.preserve_rendered_scroll_once = false;
+    }
+
+    pub(crate) fn table_horizontal_scroll(&self) -> usize {
+        self.table_horizontal_scroll
+    }
+
+    pub(crate) fn remember_table_horizontal_extent(&mut self, max_scroll: usize) {
+        self.table_max_horizontal_scroll = max_scroll;
+        self.table_horizontal_scroll = self.table_horizontal_scroll.min(max_scroll);
+    }
+
+    pub(crate) fn scroll_table_horizontally(&mut self, direction: isize) {
+        if direction < 0 {
+            self.table_horizontal_scroll = self
+                .table_horizontal_scroll
+                .saturating_sub(TABLE_SCROLL_STEP);
+        } else {
+            self.table_horizontal_scroll = self
+                .table_horizontal_scroll
+                .saturating_add(TABLE_SCROLL_STEP)
+                .min(self.table_max_horizontal_scroll);
+        }
     }
 
     pub fn reanchor_comments(&mut self) {
@@ -197,14 +224,16 @@ impl App {
             Command::MoveRawDown { select } => self.move_raw_vertically(1, select),
             Command::MoveNextBlock => {
                 if !self.rendered.blocks.is_empty() {
-                    self.selected_block = self
+                    let selected_block = self
                         .selected_block
                         .saturating_add(1)
                         .min(self.rendered.blocks.len() - 1);
+                    self.select_rendered_block(selected_block);
                 }
             }
             Command::MovePreviousBlock => {
-                self.selected_block = self.selected_block.saturating_sub(1);
+                let selected_block = self.selected_block.saturating_sub(1);
+                self.select_rendered_block(selected_block);
             }
             Command::SetRawSelection(range) => {
                 let range = normalize_range(range, &self.source)?;
@@ -413,7 +442,7 @@ impl App {
                     })
                     .map(|(index, _)| index)
                     .ok_or_else(|| anyhow!("The comment is outside the rendered document"))?;
-                self.selected_block = selected_block;
+                self.select_rendered_block(selected_block);
             }
             Mode::Raw => {
                 let range = normalize_range(range, &self.source)?;
@@ -428,6 +457,7 @@ impl App {
     }
 
     fn toggle_mode(&mut self) -> Result<()> {
+        self.reset_table_horizontal_scroll();
         match self.mode {
             Mode::Rendered => {
                 self.rendered_scroll_override = None;
@@ -456,6 +486,19 @@ impl App {
             }
         }
         Ok(())
+    }
+
+    fn reset_table_horizontal_scroll(&mut self) {
+        self.table_horizontal_scroll = 0;
+        self.table_max_horizontal_scroll = 0;
+    }
+
+    fn select_rendered_block(&mut self, index: usize) {
+        let selected_block = index.min(self.rendered.blocks.len().saturating_sub(1));
+        if self.selected_block != selected_block {
+            self.reset_table_horizontal_scroll();
+        }
+        self.selected_block = selected_block;
     }
 
     fn insert(&mut self, character: char) {
