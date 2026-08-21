@@ -42,10 +42,35 @@ fn sidecars_round_trip_with_stable_annotations() {
     SidecarStore::save(&path, &sidecar).unwrap();
     let loaded = SidecarStore::load(&path).unwrap();
 
-    assert_eq!(loaded.schema_version, 1);
+    assert_eq!(loaded.schema_version, 2);
     assert_eq!(loaded.annotations.len(), 1);
     assert_eq!(loaded.annotations[0].comment, "Add an example.");
     assert_eq!(loaded.annotations[0].anchor.quote, "Review this paragraph.");
+}
+
+#[test]
+fn schema_version_one_sidecars_migrate_with_empty_snapshots() {
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("annotations.json");
+    std::fs::write(
+        &path,
+        r#"{
+  "schema_version": 1,
+  "document": {
+    "id": "019c0000-0000-7000-8000-000000000000",
+    "path": "../guide.md",
+    "fingerprint": "sha256:document"
+  },
+  "annotations": []
+}
+"#,
+    )
+    .unwrap();
+
+    let (sidecar, _) = SidecarStore::load_with_revision(&path).unwrap();
+
+    assert_eq!(sidecar.schema_version, 2);
+    assert!(sidecar.snapshots.is_empty());
 }
 
 #[test]
@@ -94,6 +119,37 @@ fn concurrent_checked_sidecar_writers_cannot_overwrite_each_other() {
             .filter(|result| matches!(result, Err(SidecarStoreError::ExternalChange)))
             .count(),
         1
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn private_sidecar_save_restricts_default_store_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let directory = tempdir().unwrap();
+    let store_directory = directory.path().join(".annoterm");
+    let path = store_directory.join("annotations.json");
+    let sidecar = Sidecar::new(std::path::Path::new("../guide.md"), "sha256:document");
+
+    SidecarStore::save_checked_private(&path, &sidecar, None).unwrap();
+
+    assert_eq!(
+        std::fs::metadata(&store_directory)
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777,
+        0o700
+    );
+    assert_eq!(
+        std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    let lock_path = store_directory.join("annotations.json.lock");
+    assert_eq!(
+        std::fs::metadata(lock_path).unwrap().permissions().mode() & 0o777,
+        0o600
     );
 }
 

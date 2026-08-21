@@ -43,6 +43,121 @@ fn raw_navigation_keeps_grapheme_safe_selection_and_comment_draft() {
 }
 
 #[test]
+fn comment_editor_moves_and_edits_at_grapheme_boundaries() {
+    let source = "# Title\n";
+    let mut app = App::new(source.into(), parse(source).unwrap());
+    app.apply(Command::BeginComment).unwrap();
+    for character in ['a', '🦀', 'b'] {
+        app.apply(Command::AppendCommentCharacter(character))
+            .unwrap();
+    }
+
+    app.apply(Command::MoveCommentCursorLeft).unwrap();
+    app.apply(Command::MoveCommentCursorLeft).unwrap();
+    app.apply(Command::MoveCommentCursorRight).unwrap();
+    app.apply(Command::AppendCommentCharacter('X')).unwrap();
+    assert_eq!(app.comment_draft.as_deref(), Some("a🦀Xb"));
+
+    app.apply(Command::MoveCommentCursorLeft).unwrap();
+    app.apply(Command::DeleteCommentCharacter).unwrap();
+    assert_eq!(app.comment_draft.as_deref(), Some("aXb"));
+
+    app.apply(Command::MoveCommentCursorStart).unwrap();
+    app.apply(Command::AppendCommentCharacter('>')).unwrap();
+    app.apply(Command::MoveCommentCursorEnd).unwrap();
+    app.apply(Command::AppendCommentCharacter('<')).unwrap();
+    assert_eq!(app.comment_draft.as_deref(), Some(">aXb<"));
+}
+
+#[test]
+fn comment_editor_moves_between_unicode_word_starts() {
+    let source = "# Title\n";
+    let mut app = App::new(source.into(), parse(source).unwrap());
+    app.apply(Command::BeginComment).unwrap();
+    for character in "one  two 🦀 three".chars() {
+        app.apply(Command::AppendCommentCharacter(character))
+            .unwrap();
+    }
+
+    app.apply(Command::MoveCommentCursorStart).unwrap();
+    app.apply(Command::MoveCommentCursorWordRight).unwrap();
+    assert_eq!(app.comment_cursor(), 5);
+    app.apply(Command::MoveCommentCursorWordRight).unwrap();
+    assert_eq!(app.comment_cursor(), 14);
+    app.apply(Command::MoveCommentCursorWordLeft).unwrap();
+    assert_eq!(app.comment_cursor(), 5);
+    app.apply(Command::MoveCommentCursorWordLeft).unwrap();
+    assert_eq!(app.comment_cursor(), 0);
+}
+
+#[test]
+fn jump_to_comment_selects_its_rendered_block() {
+    let source = "# One\n\nTwo\n\nThree\n";
+    let mut app = App::new(source.into(), parse(source).unwrap());
+    app.apply(Command::MoveNextBlock).unwrap();
+    app.apply(Command::MoveNextBlock).unwrap();
+    app.apply(Command::AddComment("Review three".into()))
+        .unwrap();
+    app.apply(Command::MovePreviousBlock).unwrap();
+    app.apply(Command::MovePreviousBlock).unwrap();
+
+    app.apply(Command::JumpToSelectedComment).unwrap();
+
+    assert_eq!(app.selected_block, 2);
+}
+
+#[test]
+fn jump_to_comment_selects_its_raw_source_range() {
+    let source = "# One\n\nTwo\n";
+    let mut app = App::new(source.into(), parse(source).unwrap());
+    app.apply(Command::ToggleMode).unwrap();
+    app.apply(Command::SetRawSelection(7..10)).unwrap();
+    app.apply(Command::AddComment("Review two".into())).unwrap();
+    app.apply(Command::SetRawSelection(0..5)).unwrap();
+    app.apply(Command::ToggleCommentFocus).unwrap();
+
+    app.apply(Command::JumpToSelectedComment).unwrap();
+
+    assert_eq!(app.raw_selection, Some(7..10));
+    assert_eq!(app.cursor, 10);
+    assert!(!app.comments_focused());
+}
+
+#[test]
+fn failed_comment_jump_preserves_comment_focus() {
+    let source = "\n";
+    let mut app = App::new(source.into(), parse(source).unwrap());
+    app.apply(Command::ToggleMode).unwrap();
+    app.apply(Command::SetRawSelection(0..1)).unwrap();
+    app.apply(Command::AddComment("Review whitespace".into()))
+        .unwrap();
+    app.apply(Command::ToggleMode).unwrap();
+    app.apply(Command::ToggleCommentFocus).unwrap();
+
+    assert!(app.apply(Command::JumpToSelectedComment).is_err());
+    assert!(app.comments_focused());
+}
+
+#[test]
+fn jump_to_outdated_comment_uses_its_current_navigation_hint() {
+    let source = "# One\n\nReplacement\n";
+    let mut app = App::new(source.into(), parse(source).unwrap());
+    app.apply(Command::MoveNextBlock).unwrap();
+    app.apply(Command::AddComment("Review this".into()))
+        .unwrap();
+    app.comments[0].anchor_state = annoterm::annotations::AnchorState::Outdated;
+    app.comments[0].navigation_hint = Some(annoterm::annotations::NavigationHint {
+        source_range: app.comments[0].anchor.source_range.clone(),
+        document_fingerprint: app.document_fingerprint().to_owned(),
+    });
+    app.apply(Command::MovePreviousBlock).unwrap();
+
+    app.apply(Command::JumpToSelectedComment).unwrap();
+
+    assert_eq!(app.selected_block, 1);
+}
+
+#[test]
 fn raw_edits_support_undo_and_redo() {
     let source = "Body\n";
     let mut app = App::new(source.into(), parse(source).unwrap());

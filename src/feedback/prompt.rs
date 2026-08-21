@@ -8,23 +8,24 @@ pub fn generate_prompt(sidecar: &Sidecar) -> String {
         .iter()
         .filter(|annotation| annotation.is_open())
         .collect::<Vec<_>>();
-    annotations.sort_by(
-        |left, right| match (left.anchor_state, right.anchor_state) {
-            (AnchorState::Anchored, AnchorState::Anchored) => left
-                .anchor
-                .source_range
+    annotations.sort_by(|left, right| {
+        match (
+            left.current_range(&sidecar.document.fingerprint),
+            right.current_range(&sidecar.document.fingerprint),
+        ) {
+            (Some(left_range), Some(right_range)) => left_range
                 .start
                 .byte
-                .cmp(&right.anchor.source_range.start.byte)
+                .cmp(&right_range.start.byte)
                 .then_with(|| left.id.cmp(&right.id)),
-            (AnchorState::Anchored, AnchorState::Orphaned) => std::cmp::Ordering::Less,
-            (AnchorState::Orphaned, AnchorState::Anchored) => std::cmp::Ordering::Greater,
-            (AnchorState::Orphaned, AnchorState::Orphaned) => left
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => left
                 .created_at
                 .cmp(&right.created_at)
                 .then_with(|| left.id.cmp(&right.id)),
-        },
-    );
+        }
+    });
 
     let mut prompt = format!(
         "# Annoterm feedback\n\nDocument: `{}`\nFingerprint: `{}`\n\nUpdate the document to address every open annotation. Preserve unrelated content.\nKeep annotation identifiers in your response so the changes can be reviewed.\n",
@@ -46,6 +47,18 @@ pub fn generate_prompt(sidecar: &Sidecar) -> String {
                     range.start.line, range.end.line
                 );
             }
+            AnchorState::Outdated => {
+                if let Some(hint) = &annotation.navigation_hint {
+                    let _ = writeln!(
+                        prompt,
+                        "Location: approximately lines {}–{}; original lines {}–{}",
+                        hint.source_range.start.line,
+                        hint.source_range.end.line,
+                        range.start.line,
+                        range.end.line
+                    );
+                }
+            }
             AnchorState::Orphaned => {
                 let _ = writeln!(
                     prompt,
@@ -57,6 +70,7 @@ pub fn generate_prompt(sidecar: &Sidecar) -> String {
         prompt.push_str("State: ");
         prompt.push_str(match annotation.anchor_state {
             AnchorState::Anchored => "anchored",
+            AnchorState::Outdated => "outdated",
             AnchorState::Orphaned => "orphaned",
         });
         prompt.push_str("\n\nSelected text:\n\n");
