@@ -112,6 +112,10 @@ A solid dot (`●`) marks an exact current anchor. A hollow dot (`◌`) marks an
 
 Press `Ctrl+R` to open raw mode. Raw mode edits the Markdown source directly.
 
+Press `Ctrl+F` to search the Markdown source in either mode. Search is literal and case-insensitive. In rendered mode, `/` also opens search.
+Use `Enter` or `Down` for the next match. Use `Shift+Enter` or `Up` for the previous match.
+Press `Esc` to close the prompt. Raw mode selects the exact match. Rendered mode selects its block.
+
 To comment on an exact source range:
 
 1. Press `Ctrl+R`.
@@ -150,6 +154,7 @@ Open comments appear in generated feedback. Resolved comments stay in the sideca
 
 | Key | Action |
 | --- | --- |
+| `Ctrl+F`, `/` in rendered mode | Search the Markdown source |
 | `Ctrl+R` | Toggle rendered and raw modes |
 | `Ctrl+S` | Save in raw mode |
 | Arrow keys | Move the raw cursor |
@@ -163,6 +168,7 @@ Open comments appear in generated feedback. Resolved comments stay in the sideca
 | `a` | Comment on the selected rendered block |
 | `Ctrl+K` | Comment on the raw selection or rendered block |
 | `q` | Quit from the rendered document |
+| `Ctrl+Q` | Quit from rendered or raw mode |
 | `Esc` | Return focus or quit |
 
 ## Local annotation files

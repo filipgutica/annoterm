@@ -53,6 +53,9 @@ pub struct App {
     pub selected_comment: Option<usize>,
     comments_focused: bool,
     help_visible: bool,
+    search_active: bool,
+    search_query: String,
+    search_match_index: Option<usize>,
     pub dirty: bool,
     pub status: String,
     document_fingerprint: String,
@@ -84,6 +87,9 @@ impl App {
             selected_comment: None,
             comments_focused: false,
             help_visible: false,
+            search_active: false,
+            search_query: String::new(),
+            search_match_index: None,
             dirty: false,
             status: "Rendered mode · Ctrl+R switches to raw mode".into(),
             document_fingerprint,
@@ -116,6 +122,19 @@ impl App {
 
     pub fn help_visible(&self) -> bool {
         self.help_visible
+    }
+
+    pub fn search_active(&self) -> bool {
+        self.search_active
+    }
+
+    pub fn search_query(&self) -> &str {
+        &self.search_query
+    }
+
+    pub(crate) fn search_match_range(&self) -> Option<Range<usize>> {
+        self.search_match_index
+            .and_then(|index| self.search_matches().get(index).cloned())
     }
 
     pub fn comment_cursor(&self) -> usize {
@@ -209,6 +228,31 @@ impl App {
             }
             Command::FocusDocument => {
                 self.comments_focused = false;
+                self.status = match self.mode {
+                    Mode::Rendered => "Rendered document focused".into(),
+                    Mode::Raw => "Raw document focused".into(),
+                };
+            }
+            Command::BeginSearch => {
+                self.search_active = true;
+                self.refresh_search();
+            }
+            Command::AppendSearchCharacter(character) => {
+                self.search_query.push(character);
+                self.search_match_index = None;
+                self.refresh_search();
+            }
+            Command::DeleteSearchCharacter => {
+                if let Some((index, _)) = self.search_query.grapheme_indices(true).next_back() {
+                    self.search_query.truncate(index);
+                }
+                self.search_match_index = None;
+                self.refresh_search();
+            }
+            Command::NextSearchMatch => self.move_search_match(1),
+            Command::PreviousSearchMatch => self.move_search_match(-1),
+            Command::CloseSearch => {
+                self.search_active = false;
                 self.status = match self.mode {
                     Mode::Rendered => "Rendered document focused".into(),
                     Mode::Raw => "Raw document focused".into(),
@@ -425,22 +469,7 @@ impl App {
         match self.mode {
             Mode::Rendered => {
                 let selected_block = self
-                    .rendered
-                    .blocks
-                    .iter()
-                    .enumerate()
-                    .min_by_key(|(_, block)| {
-                        if range.start < block.source_range.end
-                            && range.end > block.source_range.start
-                        {
-                            0
-                        } else if block.source_range.end <= range.start {
-                            range.start - block.source_range.end
-                        } else {
-                            block.source_range.start.saturating_sub(range.end)
-                        }
-                    })
-                    .map(|(index, _)| index)
+                    .rendered_block_for_range(&range)
                     .ok_or_else(|| anyhow!("The comment is outside the rendered document"))?;
                 self.select_rendered_block(selected_block);
             }
@@ -491,6 +520,77 @@ impl App {
     fn reset_table_horizontal_scroll(&mut self) {
         self.table_horizontal_scroll = 0;
         self.table_max_horizontal_scroll = 0;
+    }
+
+    fn refresh_search(&mut self) {
+        if self.search_query.is_empty() {
+            self.search_match_index = None;
+            self.status = "Search: type to search".into();
+            return;
+        }
+        let matches = self.search_matches();
+        if matches.is_empty() {
+            self.search_match_index = None;
+            if self.mode == Mode::Raw {
+                self.raw_selection = None;
+                self.raw_selection_anchor = None;
+            }
+            self.status = "Search: no matches".into();
+            return;
+        }
+        let index = self.search_match_index.unwrap_or(0).min(matches.len() - 1);
+        self.search_match_index = Some(index);
+        self.select_search_match(&matches[index]);
+        self.status = format!("Search: {}/{}", index + 1, matches.len());
+    }
+
+    fn move_search_match(&mut self, direction: isize) {
+        let matches = self.search_matches();
+        if matches.is_empty() {
+            self.refresh_search();
+            return;
+        }
+        let index = self.search_match_index.unwrap_or(0) as isize;
+        let index = (index + direction).rem_euclid(matches.len() as isize) as usize;
+        self.search_match_index = Some(index);
+        self.select_search_match(&matches[index]);
+        self.status = format!("Search: {}/{}", index + 1, matches.len());
+    }
+
+    fn search_matches(&self) -> Vec<Range<usize>> {
+        case_insensitive_match_ranges(&self.source, &self.search_query)
+    }
+
+    fn select_search_match(&mut self, range: &Range<usize>) {
+        match self.mode {
+            Mode::Raw => {
+                self.raw_selection_anchor = Some(range.start);
+                self.cursor = range.end;
+                self.raw_selection = Some(range.clone());
+            }
+            Mode::Rendered => {
+                if let Some(index) = self.rendered_block_for_range(range) {
+                    self.select_rendered_block(index);
+                }
+            }
+        }
+    }
+
+    fn rendered_block_for_range(&self, range: &Range<usize>) -> Option<usize> {
+        self.rendered
+            .blocks
+            .iter()
+            .enumerate()
+            .min_by_key(|(_, block)| {
+                if range.start < block.source_range.end && range.end > block.source_range.start {
+                    0
+                } else if block.source_range.end <= range.start {
+                    range.start - block.source_range.end
+                } else {
+                    block.source_range.start.saturating_sub(range.end)
+                }
+            })
+            .map(|(index, _)| index)
     }
 
     fn select_rendered_block(&mut self, index: usize) {
@@ -715,6 +815,43 @@ impl App {
         self.selected_comment =
             Some((current + direction).rem_euclid(self.comments.len() as isize) as usize);
     }
+}
+
+fn case_insensitive_match_ranges(source: &str, query: &str) -> Vec<Range<usize>> {
+    if query.is_empty() {
+        return Vec::new();
+    }
+
+    let folded_query = query
+        .chars()
+        .flat_map(char::to_uppercase)
+        .collect::<String>();
+    let mut folded_source = String::with_capacity(source.len());
+    let mut source_boundaries = vec![(0usize, 0usize)];
+    for (source_start, character) in source.char_indices() {
+        folded_source.extend(character.to_uppercase());
+        source_boundaries.push((folded_source.len(), source_start + character.len_utf8()));
+    }
+
+    let mut matches = Vec::new();
+    let mut next_source_start = 0usize;
+    for &(folded_start, source_start) in &source_boundaries {
+        if source_start < next_source_start
+            || !folded_source[folded_start..].starts_with(&folded_query)
+        {
+            continue;
+        }
+        let folded_end = folded_start + folded_query.len();
+        let Ok(end_index) =
+            source_boundaries.binary_search_by_key(&folded_end, |(folded, _)| *folded)
+        else {
+            continue;
+        };
+        let source_end = source_boundaries[end_index].1;
+        matches.push(source_start..source_end);
+        next_source_start = source_end;
+    }
+    matches
 }
 
 fn normalize_range(range: Range<usize>, source: &str) -> Result<Range<usize>> {
