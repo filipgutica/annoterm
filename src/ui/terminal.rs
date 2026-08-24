@@ -1,4 +1,4 @@
-use std::{sync::OnceLock, time::Duration};
+use std::{ops::Range, sync::OnceLock, time::Duration};
 
 use anyhow::{Result, anyhow};
 use crossterm::event::{
@@ -23,7 +23,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::{
     annotations::{AnchorState, Annotation, AnnotationStatus},
     app::{App, Command, Mode},
-    markdown::{BlockKind, RenderBlock, RenderSpan, RenderStyle},
+    markdown::{BlockKind, RenderBlock, RenderSpan, RenderStyle, parse},
 };
 
 use super::{LayoutMode, layout};
@@ -87,11 +87,7 @@ where
                 continue;
             }
             let draft_was_open = app.comment_draft.is_some();
-            if is_quit(key, app.mode)
-                && !draft_was_open
-                && !app.comments_focused()
-                && !app.help_visible()
-            {
+            if should_quit(app, key) && !draft_was_open {
                 if !app.dirty || quit_pending {
                     break Ok(());
                 }
@@ -124,9 +120,7 @@ fn handle_key_and_persist<F, G>(
     G: FnMut(&[Annotation], &str, &str) -> Result<()>,
 {
     let comments_before = app.comments.clone();
-    let transient_reanchor = app.dirty
-        && key.modifiers.contains(KeyModifiers::CONTROL)
-        && key.code == KeyCode::Char('r');
+    let transient_reanchor = app.dirty && is_control_shortcut(key, 'r');
     let action_error = handle_key(app, key, save).err();
     let persistence_error = (!transient_reanchor && comments_before != app.comments)
         .then(|| save_annotations(&app.comments, app.document_fingerprint(), &app.source).err())
@@ -147,7 +141,7 @@ fn handle_key_and_persist<F, G>(
 }
 
 fn handle_mouse(app: &mut App, mouse: MouseEvent, terminal_area: Rect) -> Result<()> {
-    if app.comment_draft.is_some() {
+    if app.comment_draft.is_some() || app.search_active() {
         return Ok(());
     }
     if app.comments_focused() {
@@ -232,13 +226,39 @@ fn rendered_document_area(app: &App, terminal_area: Rect) -> Option<Rect> {
 fn is_quit(key: KeyEvent, mode: Mode) -> bool {
     key.code == KeyCode::Esc
         || (key.code == KeyCode::Char('q')
-            && (mode == Mode::Rendered || key.modifiers.contains(KeyModifiers::CONTROL)))
+            && ((mode == Mode::Rendered && key.modifiers.is_empty())
+                || is_control_shortcut(key, 'q')))
+}
+
+fn should_quit(app: &App, key: KeyEvent) -> bool {
+    is_quit(key, app.mode) && !app.search_active() && !app.comments_focused() && !app.help_visible()
+}
+
+fn is_control_shortcut(key: KeyEvent, character: char) -> bool {
+    key.code == KeyCode::Char(character)
+        && key.modifiers.contains(KeyModifiers::CONTROL)
+        && !key.modifiers.contains(KeyModifiers::SUPER)
 }
 
 fn handle_key<F>(app: &mut App, key: KeyEvent, save: &mut F) -> Result<()>
 where
     F: FnMut(&str) -> Result<String>,
 {
+    if app.search_active() {
+        return match key.code {
+            KeyCode::Esc => app.apply(Command::CloseSearch),
+            KeyCode::Enter if key.modifiers.contains(KeyModifiers::SHIFT) => {
+                app.apply(Command::PreviousSearchMatch)
+            }
+            KeyCode::Enter | KeyCode::Down => app.apply(Command::NextSearchMatch),
+            KeyCode::Up => app.apply(Command::PreviousSearchMatch),
+            KeyCode::Backspace => app.apply(Command::DeleteSearchCharacter),
+            KeyCode::Char(character) if accepts_text(key.modifiers) => {
+                app.apply(Command::AppendSearchCharacter(character))
+            }
+            _ => Ok(()),
+        };
+    }
     if app.help_visible() {
         return match key.code {
             KeyCode::Esc | KeyCode::F(1) => app.apply(Command::CloseHelp),
@@ -273,34 +293,42 @@ where
             _ => Ok(()),
         };
     }
+    if is_control_shortcut(key, 'f')
+        || (app.mode == Mode::Rendered
+            && !app.comments_focused()
+            && key.code == KeyCode::Char('/')
+            && key.modifiers.is_empty())
+    {
+        return app.apply(Command::BeginSearch);
+    }
     if key.code == KeyCode::F(1)
         || (key.code == KeyCode::Char('?')
             && (app.mode == Mode::Rendered || app.comments_focused()))
     {
         return app.apply(Command::ToggleHelp);
     }
-    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('w') {
+    if is_control_shortcut(key, 'w') {
         return app.apply(Command::ToggleCommentFocus);
     }
     if app.comments_focused() {
         return handle_focused_comment_key(app, key, save);
     }
-    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('r') {
+    if is_control_shortcut(key, 'r') {
         return app.apply(Command::ToggleMode);
     }
-    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('s') {
+    if is_control_shortcut(key, 's') {
         let fingerprint = save(&app.source)?;
         app.set_document_fingerprint(fingerprint);
         app.reanchor_comments();
         return app.apply(Command::SaveCompleted);
     }
-    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('z') {
+    if is_control_shortcut(key, 'z') {
         return app.apply(Command::Undo);
     }
-    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('y') {
+    if is_control_shortcut(key, 'y') {
         return app.apply(Command::Redo);
     }
-    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('k') {
+    if is_control_shortcut(key, 'k') {
         return begin_comment(app, save);
     }
 
@@ -445,7 +473,7 @@ fn draw_document_only(frame: &mut Frame, app: &mut App) {
         terminal_rows(frame.area(), app.comment_draft.is_none());
     let (document_area, comment_area) =
         document_and_comment_areas(body, app.comment_draft.is_some());
-    frame.render_widget(Paragraph::new(safe_display(&app.status)), status_area);
+    draw_status_or_search(frame, app, status_area);
     draw_document_pane(frame, app, document_area);
     if let Some(area) = comment_area {
         draw_comment_draft(frame, app, area);
@@ -453,6 +481,34 @@ fn draw_document_only(frame: &mut Frame, app: &mut App) {
     if let Some(area) = shortcut_area {
         draw_shortcut_bar(frame, app, area);
     }
+}
+
+fn draw_status_or_search(frame: &mut Frame, app: &App, area: Rect) {
+    if !app.search_active() {
+        frame.render_widget(Paragraph::new(safe_display(&app.status)), area);
+        return;
+    }
+    let prefix = "Search: ";
+    let query = safe_display(app.search_query());
+    let summary = app.status.strip_prefix("Search: ").unwrap_or(&app.status);
+    let cursor_column = unicode_width::UnicodeWidthStr::width(prefix)
+        + unicode_width::UnicodeWidthStr::width(query.as_str());
+    let scroll = cursor_column
+        .saturating_add(1)
+        .saturating_sub(usize::from(area.width));
+    frame.render_widget(
+        Paragraph::new(format!("{prefix}{query} · {summary}"))
+            .scroll((0, scroll.try_into().unwrap_or(u16::MAX))),
+        area,
+    );
+    frame.set_cursor_position((
+        area.x
+            + cursor_column
+                .saturating_sub(scroll)
+                .try_into()
+                .unwrap_or(u16::MAX),
+        area.y,
+    ));
 }
 
 fn draw_three_pane(frame: &mut Frame, app: &mut App) {
@@ -468,7 +524,7 @@ fn draw_three_pane(frame: &mut Frame, app: &mut App) {
         .split(body);
     let (document_area, comment_area) =
         document_and_comment_areas(horizontal[0], app.comment_draft.is_some());
-    frame.render_widget(Paragraph::new(safe_display(&app.status)), status_area);
+    draw_status_or_search(frame, app, status_area);
     draw_document_pane(frame, app, document_area);
     frame.render_widget(comments_widget(app, horizontal[1]), horizontal[1]);
     if let Some(area) = comment_area {
@@ -599,6 +655,7 @@ fn place_raw_cursor(
     if app.mode != Mode::Raw
         || app.comments_focused()
         || app.comment_draft.is_some()
+        || app.search_active()
         || area.width < 3
         || area.height < 3
     {
@@ -749,9 +806,6 @@ fn document_scroll(app: &App, area: Rect, raw_cursor: Option<(u16, u16)>) -> u16
     let viewport_height = usize::from(area.height.saturating_sub(2)).max(1);
     let scroll = match app.mode {
         Mode::Rendered => {
-            if let Some(scroll) = app.preserved_rendered_scroll(area.width, area.height) {
-                return scroll;
-            }
             let width = area.width.saturating_sub(2).max(1);
             let selected_start = app
                 .rendered
@@ -766,39 +820,107 @@ fn document_scroll(app: &App, area: Rect, raw_cursor: Option<(u16, u16)>) -> u16
                 .get(app.selected_block)
                 .map(|block| rendered_block_height(block, width))
                 .unwrap_or(0);
-            if let Some(scroll) = app.rendered_scroll_override(area.width, area.height) {
-                let scroll = usize::from(scroll);
-                if selected_start < scroll {
+            let scroll =
+                if let Some(scroll) = app.preserved_rendered_scroll(area.width, area.height) {
+                    usize::from(scroll)
+                } else if let Some(scroll) = app.rendered_scroll_override(area.width, area.height) {
+                    let scroll = usize::from(scroll);
+                    if selected_start < scroll {
+                        selected_start
+                    } else if selected_height >= viewport_height
+                        && selected_start >= scroll.saturating_add(viewport_height)
+                    {
+                        selected_start
+                            .saturating_add(1)
+                            .saturating_sub(viewport_height)
+                    } else if selected_start.saturating_add(selected_height)
+                        > scroll.saturating_add(viewport_height)
+                        && selected_height < viewport_height
+                    {
+                        selected_start
+                            .saturating_add(selected_height)
+                            .saturating_sub(viewport_height)
+                    } else {
+                        scroll
+                    }
+                } else if selected_height >= viewport_height {
                     selected_start
-                } else if selected_height >= viewport_height
-                    && selected_start >= scroll.saturating_add(viewport_height)
-                {
-                    selected_start
-                        .saturating_add(1)
-                        .saturating_sub(viewport_height)
-                } else if selected_start.saturating_add(selected_height)
-                    > scroll.saturating_add(viewport_height)
-                    && selected_height < viewport_height
-                {
+                } else {
                     selected_start
                         .saturating_add(selected_height)
                         .saturating_sub(viewport_height)
-                } else {
-                    scroll
-                }
-            } else if selected_height >= viewport_height {
-                selected_start
-            } else {
-                selected_start
-                    .saturating_add(selected_height)
-                    .saturating_sub(viewport_height)
-            }
+                };
+            rendered_search_match_scroll(app, width, selected_start, viewport_height, scroll)
+                .unwrap_or(scroll)
         }
         Mode::Raw => usize::from(raw_cursor.map(|position| position.0).unwrap_or(0))
             .saturating_add(1)
             .saturating_sub(viewport_height),
     };
     scroll.try_into().unwrap_or(u16::MAX)
+}
+
+fn rendered_search_match_scroll(
+    app: &App,
+    width: u16,
+    selected_start: usize,
+    viewport_height: usize,
+    scroll: usize,
+) -> Option<usize> {
+    if !app.search_active() {
+        return None;
+    }
+    let range = app.search_match_range()?;
+    let block = app.rendered.blocks.get(app.selected_block)?;
+    if range.start < block.source_range.start || range.end > block.source_range.end {
+        return None;
+    }
+    let source_block = app.source.get(block.source_range.clone())?;
+    const MARKER: &str = "\u{e000}\u{e001}";
+    if source_block.contains(MARKER) {
+        return None;
+    }
+    let match_start = range.start.checked_sub(block.source_range.start)?;
+    if !source_block.is_char_boundary(match_start) {
+        return None;
+    }
+    let marked_source = format!(
+        "{}{MARKER}{}",
+        &source_block[..match_start],
+        &source_block[match_start..]
+    );
+    let marked_block = parse(&marked_source)
+        .ok()?
+        .blocks
+        .into_iter()
+        .find(|block| block.lines.iter().any(|line| line.contains(MARKER)))?;
+    let mut rendered_text = render_block_lines(
+        &marked_block,
+        "› ",
+        false,
+        width,
+        app.table_horizontal_scroll(),
+    )
+    .iter()
+    .map(|line| {
+        line.spans
+            .iter()
+            .map(|span| span.content.as_ref())
+            .collect::<String>()
+    })
+    .collect::<Vec<_>>()
+    .join("\n");
+    let offset = rendered_text.find(MARKER)?;
+    rendered_text.replace_range(offset..offset + MARKER.len(), "");
+    let target_row =
+        selected_start + usize::from(text_cursor_position(&rendered_text, offset, width).0);
+    Some(if target_row < scroll {
+        target_row
+    } else if target_row >= scroll.saturating_add(viewport_height) {
+        target_row.saturating_add(1).saturating_sub(viewport_height)
+    } else {
+        scroll
+    })
 }
 
 fn rendered_block_height(block: &RenderBlock, width: u16) -> usize {
@@ -929,9 +1051,9 @@ fn shortcut_bar_text(app: &App, width: u16) -> String {
         ]
     } else if app.mode == Mode::Raw {
         vec![
-            "Arrows/wheel Move · Shift+arrows Select · Ctrl+S Save · Ctrl+K Comment · Ctrl+W Comments · Ctrl+R Render · F1 Help".into(),
-            "Arrows Move · Shift+arrows Select · Ctrl+K Comment · Ctrl+W Comments · F1 Help".into(),
-            "Arrows · Shift+↑/↓ · Ctrl+K Comment · Ctrl+W Comments · F1".into(),
+            "Arrows/wheel Move · Shift+arrows Select · Ctrl+F Search · Ctrl+S Save · Ctrl+K Comment · Ctrl+W Comments · Ctrl+R Render · F1 Help".into(),
+            "Arrows Move · Shift+arrows Select · Ctrl+F Search · Ctrl+K Comment · Ctrl+W Comments · F1 Help".into(),
+            "Ctrl+F Search · Ctrl+K Comment · Ctrl+W Comments · F1".into(),
             "^K Comment · ^W Comments · F1".into(),
         ]
     } else if app.comments.is_empty() {
@@ -941,8 +1063,8 @@ fn shortcut_bar_text(app: &App, width: u16) -> String {
             ""
         };
         vec![
-            format!("↑/↓/wheel Blocks · {table}a Comment · Ctrl+R Raw · ? Help"),
-            format!("↑/↓ Blocks · {table}a Comment · ? Help"),
+            format!("↑/↓/wheel Blocks · {table}a Comment · / Search · Ctrl+R Raw · ? Help"),
+            format!("↑/↓ Blocks · {table}a Comment · / Search · ? Help"),
             "↑/↓ Blocks · a Comment · ? Help".into(),
             "↑/↓ · a Comment · ? Help".into(),
         ]
@@ -961,7 +1083,7 @@ fn shortcut_bar_text(app: &App, width: u16) -> String {
         };
         vec![
             format!(
-                "↑/↓/wheel Blocks · {table}a Comment · [/] Comments · j Jump · e Edit · x {resolution} · d Delete · Ctrl+W Focus · Ctrl+R Raw · ? Help"
+                "↑/↓/wheel Blocks · {table}a Comment · [/] Comments · j Jump · e Edit · x {resolution} · d Delete · / Search · Ctrl+W Focus · Ctrl+R Raw · ? Help"
             ),
             format!(
                 "↑/↓ Blocks · {table}a Comment · [/] Comments · j Jump · e Edit · x {resolution} · ? Help"
@@ -991,7 +1113,7 @@ fn draw_help(frame: &mut Frame, app: &App) {
         } else if app.comment_draft.is_some() {
             "←/→ · Enter · Esc Cancel"
         } else if app.mode == Mode::Raw {
-            "^K Comment · ^W Comments"
+            "Ctrl+F Search · Ctrl+K Comment"
         } else if selected_block_is_table(app) {
             "↑/↓ Blocks · ←/→ Table"
         } else {
@@ -1033,9 +1155,9 @@ fn draw_help(frame: &mut Frame, app: &App) {
         ]),
         Line::from("? Help (F1 in raw)               Focused: ↑/↓ or [/] Select"),
         Line::from("Esc Close / quit                  j Jump"),
-        Line::from("Ctrl+R Rendered / raw              e or Enter Edit"),
-        Line::from("Ctrl+W Focus comments              x Resolve / reopen"),
-        Line::from("                                   d Delete · o Repair"),
+        Line::from("Ctrl+F Search · / rendered         e or Enter Edit"),
+        Line::from("Ctrl+R Rendered / raw              x Resolve / reopen"),
+        Line::from("Ctrl+W Focus comments              d Delete · o Repair"),
         Line::from(vec![
             Span::styled(
                 "Rendered document",
@@ -1048,7 +1170,7 @@ fn draw_help(frame: &mut Frame, app: &App) {
         Line::from("←/→ Table · a Comment block         Shift+arrows Select"),
         Line::from("[/] Select comment                 Ctrl+W Focus comments"),
         Line::from("j Jump to comment                  Ctrl+K Comment selection"),
-        Line::from("                                   Ctrl+S Save · Ctrl+Z/Y Undo"),
+        Line::from("Enter/Down next · Shift+Enter/Up previous · Ctrl+S Save"),
         Line::from(Span::styled(
             "Comment editor",
             Style::default().add_modifier(Modifier::BOLD),
@@ -1106,19 +1228,141 @@ fn rendered_text_at_width(app: &App, width: u16) -> Text<'static> {
         } else {
             "  "
         };
-        output.extend(render_block_lines(
+        let table_horizontal_scroll = if index == app.selected_block {
+            app.table_horizontal_scroll()
+        } else {
+            0
+        };
+        let mut lines = render_block_lines(
             block,
             marker,
             index == app.selected_block,
             width,
-            if index == app.selected_block {
-                app.table_horizontal_scroll()
-            } else {
-                0
-            },
-        ));
+            table_horizontal_scroll,
+        );
+        if index == app.selected_block
+            && let Some(range) = rendered_search_match_display_range(
+                app,
+                block,
+                &lines,
+                marker,
+                width,
+                table_horizontal_scroll,
+            )
+        {
+            highlight_rendered_range(&mut lines, range);
+        }
+        output.extend(lines);
     }
     Text::from(output)
+}
+
+const SEARCH_MATCH_START_MARKER: &str = "\u{2063}";
+const SEARCH_MATCH_END_MARKER: &str = "\u{2064}";
+
+fn rendered_search_match_display_range(
+    app: &App,
+    block: &RenderBlock,
+    rendered_lines: &[Line<'static>],
+    marker: &'static str,
+    width: u16,
+    table_horizontal_scroll: usize,
+) -> Option<Range<usize>> {
+    if !app.search_active() {
+        return None;
+    }
+    let range = app.search_match_range()?;
+    if range.start < block.source_range.start || range.end > block.source_range.end {
+        return None;
+    }
+    let source_block = app.source.get(block.source_range.clone())?;
+    if source_block.contains(SEARCH_MATCH_START_MARKER)
+        || source_block.contains(SEARCH_MATCH_END_MARKER)
+    {
+        return None;
+    }
+    let match_start = range.start.checked_sub(block.source_range.start)?;
+    let match_end = range.end.checked_sub(block.source_range.start)?;
+    if !source_block.is_char_boundary(match_start) || !source_block.is_char_boundary(match_end) {
+        return None;
+    }
+
+    let mut marked_source = source_block.to_owned();
+    marked_source.insert_str(match_end, SEARCH_MATCH_END_MARKER);
+    marked_source.insert_str(match_start, SEARCH_MATCH_START_MARKER);
+    let marked_block = parse(&marked_source)
+        .ok()?
+        .blocks
+        .into_iter()
+        .find(|block| {
+            let text = block.lines.join("\n");
+            text.contains(SEARCH_MATCH_START_MARKER) && text.contains(SEARCH_MATCH_END_MARKER)
+        })?;
+    let marked_lines =
+        render_block_lines(&marked_block, marker, false, width, table_horizontal_scroll);
+    let mut marked_text = rendered_lines_text(&marked_lines);
+    let start = marked_text.find(SEARCH_MATCH_START_MARKER)?;
+    let marked_match_start = start + SEARCH_MATCH_START_MARKER.len();
+    let end =
+        marked_match_start + marked_text[marked_match_start..].find(SEARCH_MATCH_END_MARKER)?;
+    marked_text.replace_range(end..end + SEARCH_MATCH_END_MARKER.len(), "");
+    marked_text.replace_range(start..marked_match_start, "");
+    if marked_text != rendered_lines_text(rendered_lines) {
+        return None;
+    }
+    Some(start..end - SEARCH_MATCH_START_MARKER.len())
+}
+
+fn rendered_lines_text(lines: &[Line<'static>]) -> String {
+    lines
+        .iter()
+        .map(|line| {
+            line.spans
+                .iter()
+                .map(|span| span.content.as_ref())
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn highlight_rendered_range(lines: &mut [Line<'static>], range: Range<usize>) {
+    let mut offset = 0usize;
+    for line in lines {
+        let mut highlighted = Vec::new();
+        for span in std::mem::take(&mut line.spans) {
+            let content = span.content.into_owned();
+            let span_end = offset + content.len();
+            let highlight_start = range.start.max(offset).min(span_end) - offset;
+            let highlight_end = range.end.max(offset).min(span_end) - offset;
+            if highlight_start < highlight_end
+                && content.is_char_boundary(highlight_start)
+                && content.is_char_boundary(highlight_end)
+            {
+                if highlight_start > 0 {
+                    highlighted.push(Span::styled(
+                        content[..highlight_start].to_owned(),
+                        span.style,
+                    ));
+                }
+                highlighted.push(Span::styled(
+                    content[highlight_start..highlight_end].to_owned(),
+                    span.style.patch(search_match_style()),
+                ));
+                if highlight_end < content.len() {
+                    highlighted.push(Span::styled(
+                        content[highlight_end..].to_owned(),
+                        span.style,
+                    ));
+                }
+            } else {
+                highlighted.push(Span::styled(content, span.style));
+            }
+            offset = span_end;
+        }
+        line.spans = highlighted;
+        offset = offset.saturating_add(1);
+    }
 }
 
 fn render_block_lines(
@@ -1357,10 +1601,32 @@ fn clip_table_line(line: &[RenderSpan], start: usize, width: usize) -> Vec<Rende
     let mut output = Vec::new();
     let mut source_column = 0usize;
     let mut output_width = 0usize;
+    let mut search_match_open = false;
+    let mut search_marker_visible = false;
     for span in line {
         for grapheme in UnicodeSegmentation::graphemes(span.text.as_str(), true) {
+            if grapheme == SEARCH_MATCH_START_MARKER {
+                search_match_open = true;
+                continue;
+            }
+            if grapheme == SEARCH_MATCH_END_MARKER {
+                if search_marker_visible {
+                    push_table_grapheme(&mut output, SEARCH_MATCH_END_MARKER, span.style);
+                }
+                search_match_open = false;
+                search_marker_visible = false;
+                continue;
+            }
             let grapheme_width = unicode_width::UnicodeWidthStr::width(grapheme);
             let grapheme_end = source_column.saturating_add(grapheme_width);
+            if search_match_open
+                && !search_marker_visible
+                && grapheme_end > start
+                && source_column < end
+            {
+                push_table_grapheme(&mut output, SEARCH_MATCH_START_MARKER, span.style);
+                search_marker_visible = true;
+            }
             if grapheme_width == 0 && (start..end).contains(&source_column) {
                 push_table_grapheme(&mut output, grapheme, span.style);
             } else if grapheme_end > start && source_column < end {
@@ -1375,6 +1641,9 @@ fn clip_table_line(line: &[RenderSpan], start: usize, width: usize) -> Vec<Rende
             }
             source_column = grapheme_end;
             if source_column >= end {
+                if search_match_open && search_marker_visible {
+                    push_table_grapheme(&mut output, SEARCH_MATCH_END_MARKER, span.style);
+                }
                 break;
             }
         }
@@ -1599,6 +1868,14 @@ fn selection_style() -> Style {
     }
 }
 
+fn search_match_style() -> Style {
+    if colors_enabled() {
+        Style::default().fg(Color::Black).bg(Color::Yellow)
+    } else {
+        Style::default().add_modifier(Modifier::UNDERLINED)
+    }
+}
+
 fn block_style(kind: BlockKind, heading_level: Option<u8>, colors: bool) -> Style {
     match kind {
         BlockKind::Heading => match heading_level.unwrap_or(6) {
@@ -1728,11 +2005,11 @@ fn safe_display(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        block_style, comment_editor_controls, comments_widget, document_scroll, document_widget,
-        draw, focus_style, handle_key, handle_key_and_persist, handle_mouse, highlight_code,
-        inline_style, marker_style, raw_cursor_position, raw_text, rendered_block_height,
-        rendered_document_area, rendered_text, rendered_text_at_width, safe_display,
-        shortcut_bar_text,
+        block_style, clip_table_line, colors_enabled, comment_editor_controls, comments_widget,
+        document_scroll, document_widget, draw, focus_style, handle_key, handle_key_and_persist,
+        handle_mouse, highlight_code, inline_style, marker_style, raw_cursor_position, raw_text,
+        rendered_block_height, rendered_document_area, rendered_text, rendered_text_at_width,
+        safe_display, shortcut_bar_text,
     };
 
     #[test]
@@ -1907,7 +2184,7 @@ mod tests {
             .map(|cell| cell.symbol())
             .collect::<String>();
         assert!(visible.contains("←/→ Table · a Comment block"));
-        assert!(visible.contains("Ctrl+W Focus comments"));
+        assert!(visible.contains("Ctrl+F Search"));
         assert!(visible.contains("Option/Ctrl+←/→ Words"));
     }
 
@@ -2064,6 +2341,22 @@ mod tests {
         handle_key(
             &mut app,
             KeyEvent::new(KeyCode::Right, KeyModifiers::CONTROL),
+            &mut save,
+        )
+        .unwrap();
+        assert_eq!(app.comment_cursor(), 7);
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Left, KeyModifiers::SUPER),
+            &mut save,
+        )
+        .unwrap();
+        assert_eq!(app.comment_cursor(), 6);
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Right, KeyModifiers::SUPER),
             &mut save,
         )
         .unwrap();
@@ -2596,6 +2889,505 @@ mod tests {
         )
         .unwrap();
         assert!(app.comment_draft.is_some());
+    }
+
+    #[test]
+    fn search_uses_control_and_does_not_hijack_a_comment_draft() {
+        let source = "# Needle\n\nNeedle again\n";
+        let mut app = App::new(source.into(), parse(source).unwrap());
+        let mut save = |_: &str| Ok("sha256:saved".to_owned());
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('f'), KeyModifiers::SUPER),
+            &mut save,
+        )
+        .unwrap();
+        assert!(!app.search_active());
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
+            &mut save,
+        )
+        .unwrap();
+        for character in "Needle".chars() {
+            handle_key(
+                &mut app,
+                KeyEvent::new(KeyCode::Char(character), KeyModifiers::NONE),
+                &mut save,
+            )
+            .unwrap();
+        }
+        assert!(app.search_active());
+        assert_eq!(app.selected_block, 0);
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Down, KeyModifiers::NONE),
+            &mut save,
+        )
+        .unwrap();
+        assert_eq!(app.selected_block, 1);
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::SHIFT),
+            &mut save,
+        )
+        .unwrap();
+        assert_eq!(app.selected_block, 0);
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE),
+            &mut save,
+        )
+        .unwrap();
+        app.apply(Command::BeginComment).unwrap();
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('f'), KeyModifiers::SUPER),
+            &mut save,
+        )
+        .unwrap();
+        assert!(!app.search_active());
+        assert!(app.comment_draft.is_some());
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE),
+            &mut save,
+        )
+        .unwrap();
+        assert_eq!(app.comment_draft.as_deref(), Some("x"));
+    }
+
+    #[test]
+    fn slash_starts_rendered_search_and_remains_editable_in_raw_mode() {
+        let source = "body";
+        let mut app = App::new(source.into(), parse(source).unwrap());
+        let mut save = |_: &str| Ok("sha256:saved".to_owned());
+        let slash = KeyEvent::new(KeyCode::Char('/'), KeyModifiers::NONE);
+
+        assert!(shortcut_bar_text(&app, 80).contains("/ Search"));
+        handle_key(&mut app, slash, &mut save).unwrap();
+        assert!(app.search_active());
+        assert!(app.search_query().is_empty());
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE),
+            &mut save,
+        )
+        .unwrap();
+        app.apply(Command::ToggleMode).unwrap();
+        assert!(shortcut_bar_text(&app, 80).contains("Ctrl+F Search"));
+        assert!(!shortcut_bar_text(&app, 80).contains("/ Search"));
+        handle_key(&mut app, slash, &mut save).unwrap();
+
+        assert!(!app.search_active());
+        assert_eq!(app.source, "/body");
+    }
+
+    #[test]
+    fn slash_does_not_override_comment_input_or_focus() {
+        let source = "body";
+        let mut save = |_: &str| Ok("sha256:saved".to_owned());
+        let slash = KeyEvent::new(KeyCode::Char('/'), KeyModifiers::NONE);
+
+        let mut draft_app = App::new(source.into(), parse(source).unwrap());
+        draft_app.apply(Command::BeginComment).unwrap();
+        handle_key(&mut draft_app, slash, &mut save).unwrap();
+        assert!(!draft_app.search_active());
+        assert_eq!(draft_app.comment_draft.as_deref(), Some("/"));
+
+        let mut focused_app = App::new(source.into(), parse(source).unwrap());
+        focused_app
+            .apply(Command::AddComment("Review this".into()))
+            .unwrap();
+        focused_app.apply(Command::ToggleCommentFocus).unwrap();
+        handle_key(&mut focused_app, slash, &mut save).unwrap();
+        assert!(!focused_app.search_active());
+        assert!(focused_app.comments_focused());
+    }
+
+    #[test]
+    fn search_prompt_shows_the_query_and_match_count() {
+        let source = "# Needle\n\nNeedle again\n";
+        let mut app = App::new(source.into(), parse(source).unwrap());
+        app.apply(Command::BeginSearch).unwrap();
+        for character in "Needle".chars() {
+            app.apply(Command::AppendSearchCharacter(character))
+                .unwrap();
+        }
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+
+        terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+
+        let status = (0..80)
+            .map(|x| terminal.backend().buffer()[(x, 0)].symbol())
+            .collect::<String>();
+        assert!(status.contains("Search: Needle · 1/2"));
+        assert_eq!(terminal.backend().cursor_position(), Position::new(14, 0));
+    }
+
+    #[test]
+    fn rendered_search_cycles_through_full_source_and_scrolls_each_match_into_view() {
+        let source = (0..8)
+            .map(|index| format!("rendered-{index}-needle"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let mut app = App::new(source.clone(), parse(&source).unwrap());
+        let mut save = |_: &str| Ok("sha256:saved".to_owned());
+        let mut terminal = Terminal::new(TestBackend::new(40, 8)).unwrap();
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
+            &mut save,
+        )
+        .unwrap();
+        for character in "needle".chars() {
+            handle_key(
+                &mut app,
+                KeyEvent::new(KeyCode::Char(character), KeyModifiers::NONE),
+                &mut save,
+            )
+            .unwrap();
+        }
+
+        for index in 0..8 {
+            if index > 0 {
+                handle_key(
+                    &mut app,
+                    KeyEvent::new(KeyCode::Down, KeyModifiers::NONE),
+                    &mut save,
+                )
+                .unwrap();
+            }
+            assert_eq!(app.selected_block, 0);
+            assert_eq!(app.status, format!("Search: {}/8", index + 1));
+
+            terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+            let visible = terminal
+                .backend()
+                .buffer()
+                .content()
+                .iter()
+                .map(|cell| cell.symbol())
+                .collect::<String>();
+            assert!(visible.contains(&format!("rendered-{index}-needle")));
+        }
+    }
+
+    #[test]
+    fn rendered_search_highlights_only_the_active_match_and_preserves_inline_style() {
+        let source = "before **Needle** after needle";
+        let mut app = App::new(source.into(), parse(source).unwrap());
+        app.apply(Command::BeginSearch).unwrap();
+        for character in "needle".chars() {
+            app.apply(Command::AppendSearchCharacter(character))
+                .unwrap();
+        }
+
+        let text = rendered_text(&app);
+        let active_match = text.lines[0]
+            .spans
+            .iter()
+            .find(|span| span.content == "Needle")
+            .expect("the bold match remains a distinct rendered span");
+        let inactive_match = text.lines[0]
+            .spans
+            .iter()
+            .find(|span| span.content.contains("after needle"))
+            .expect("the second match remains visible");
+
+        if colors_enabled() {
+            assert_eq!(active_match.style.fg, Some(Color::Black));
+            assert_eq!(active_match.style.bg, Some(Color::Yellow));
+            assert_ne!(inactive_match.style.bg, Some(Color::Yellow));
+        } else {
+            assert!(
+                active_match
+                    .style
+                    .add_modifier
+                    .contains(Modifier::UNDERLINED)
+            );
+            assert!(
+                !inactive_match
+                    .style
+                    .add_modifier
+                    .contains(Modifier::UNDERLINED)
+            );
+        }
+        assert!(active_match.style.add_modifier.contains(Modifier::BOLD));
+        if !colors_enabled() {
+            assert!(active_match.style.add_modifier.contains(Modifier::REVERSED));
+        }
+
+        app.apply(Command::NextSearchMatch).unwrap();
+        let cycled = rendered_text(&app);
+        let first_match = cycled.lines[0]
+            .spans
+            .iter()
+            .find(|span| span.content == "Needle")
+            .expect("the first match remains visible");
+        let second_match = cycled.lines[0]
+            .spans
+            .iter()
+            .find(|span| span.content == "needle")
+            .expect("the second match remains visible");
+        if colors_enabled() {
+            assert_ne!(first_match.style.bg, Some(Color::Yellow));
+            assert_eq!(second_match.style.fg, Some(Color::Black));
+            assert_eq!(second_match.style.bg, Some(Color::Yellow));
+        } else {
+            assert!(
+                !first_match
+                    .style
+                    .add_modifier
+                    .contains(Modifier::UNDERLINED)
+            );
+            assert!(
+                second_match
+                    .style
+                    .add_modifier
+                    .contains(Modifier::UNDERLINED)
+            );
+        }
+    }
+
+    #[test]
+    fn rendered_search_highlights_a_visible_table_match() {
+        let source = "| Name | Value |\n| --- | --- |\n| first | needle |\n";
+        let mut app = App::new(source.into(), parse(source).unwrap());
+        app.apply(Command::BeginSearch).unwrap();
+        for character in "needle".chars() {
+            app.apply(Command::AppendSearchCharacter(character))
+                .unwrap();
+        }
+
+        let text = rendered_text_at_width(&app, 40);
+        let table_match = text
+            .lines
+            .iter()
+            .flat_map(|line| &line.spans)
+            .find(|span| span.content == "needle")
+            .expect("the table match remains visible");
+
+        if colors_enabled() {
+            assert_eq!(table_match.style.fg, Some(Color::Black));
+            assert_eq!(table_match.style.bg, Some(Color::Yellow));
+        } else {
+            assert!(
+                table_match
+                    .style
+                    .add_modifier
+                    .contains(Modifier::UNDERLINED)
+            );
+        }
+    }
+
+    #[test]
+    fn table_clipping_preserves_visible_search_match_boundaries() {
+        let line = vec![crate::markdown::RenderSpan {
+            text: format!(
+                "ab{}needle{}cd",
+                super::SEARCH_MATCH_START_MARKER,
+                super::SEARCH_MATCH_END_MARKER
+            ),
+            style: RenderStyle::default(),
+        }];
+        let clipped_text = |start| {
+            clip_table_line(&line, start, 4)
+                .iter()
+                .map(|span| span.text.as_str())
+                .collect::<String>()
+        };
+
+        assert_eq!(
+            clipped_text(0),
+            format!(
+                "ab{}ne{}",
+                super::SEARCH_MATCH_START_MARKER,
+                super::SEARCH_MATCH_END_MARKER
+            )
+        );
+        assert_eq!(
+            clipped_text(4),
+            format!(
+                "{}edle{}",
+                super::SEARCH_MATCH_START_MARKER,
+                super::SEARCH_MATCH_END_MARKER
+            )
+        );
+    }
+
+    #[test]
+    fn rendered_search_scrolls_to_the_source_match_when_rendering_adds_the_same_text() {
+        let source = format!(
+            "$needle$ then first [math] needle source-first\n{}\nlater [math] needle source-target",
+            (0..8)
+                .map(|index| format!("filler-{index}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
+        let mut app = App::new(source.clone(), parse(&source).unwrap());
+        let mut save = |_: &str| Ok("sha256:saved".to_owned());
+        let mut terminal = Terminal::new(TestBackend::new(40, 8)).unwrap();
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
+            &mut save,
+        )
+        .unwrap();
+        for character in "[math] needle".chars() {
+            handle_key(
+                &mut app,
+                KeyEvent::new(KeyCode::Char(character), KeyModifiers::NONE),
+                &mut save,
+            )
+            .unwrap();
+        }
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Down, KeyModifiers::NONE),
+            &mut save,
+        )
+        .unwrap();
+        assert_eq!(app.selected_block, 0);
+        assert_eq!(app.status, "Search: 2/2");
+
+        terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+        let visible = terminal
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+        assert!(visible.contains("source-target"));
+    }
+
+    #[test]
+    fn raw_search_cycles_through_full_source_and_scrolls_each_match_into_view() {
+        let source = (0..8)
+            .map(|index| format!("- raw-{index}-needle\n"))
+            .collect::<String>();
+        let expected_ranges = source
+            .match_indices("needle")
+            .map(|(start, matched)| start..start + matched.len())
+            .collect::<Vec<_>>();
+        let mut app = App::new(source.clone(), parse(&source).unwrap());
+        app.apply(Command::ToggleMode).unwrap();
+        let mut save = |_: &str| Ok("sha256:saved".to_owned());
+        let mut terminal = Terminal::new(TestBackend::new(40, 8)).unwrap();
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
+            &mut save,
+        )
+        .unwrap();
+        for character in "needle".chars() {
+            handle_key(
+                &mut app,
+                KeyEvent::new(KeyCode::Char(character), KeyModifiers::NONE),
+                &mut save,
+            )
+            .unwrap();
+        }
+
+        for (index, expected_range) in expected_ranges.into_iter().enumerate() {
+            if index > 0 {
+                handle_key(
+                    &mut app,
+                    KeyEvent::new(KeyCode::Down, KeyModifiers::NONE),
+                    &mut save,
+                )
+                .unwrap();
+            }
+            assert_eq!(app.raw_selection, Some(expected_range));
+
+            terminal.draw(|frame| draw(frame, &mut app)).unwrap();
+            let visible = terminal
+                .backend()
+                .buffer()
+                .content()
+                .iter()
+                .map(|cell| cell.symbol())
+                .collect::<String>();
+            assert!(visible.contains(&format!("raw-{index}-needle")));
+        }
+    }
+
+    #[test]
+    fn primary_shortcuts_accept_control_and_ignore_super() {
+        for character in ['f', 'w', 'r', 's', 'z', 'y', 'k', 'q'] {
+            assert!(super::is_control_shortcut(
+                KeyEvent::new(KeyCode::Char(character), KeyModifiers::CONTROL),
+                character,
+            ));
+            assert!(super::is_control_shortcut(
+                KeyEvent::new(
+                    KeyCode::Char(character),
+                    KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+                ),
+                character,
+            ));
+            assert!(!super::is_control_shortcut(
+                KeyEvent::new(KeyCode::Char(character), KeyModifiers::SUPER),
+                character,
+            ));
+            assert!(!super::is_control_shortcut(
+                KeyEvent::new(
+                    KeyCode::Char(character),
+                    KeyModifiers::CONTROL | KeyModifiers::SUPER,
+                ),
+                character,
+            ));
+        }
+        assert!(super::is_quit(
+            KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE),
+            crate::app::Mode::Rendered,
+        ));
+        assert!(!super::is_quit(
+            KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE),
+            crate::app::Mode::Raw,
+        ));
+        assert!(super::is_quit(
+            KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL),
+            crate::app::Mode::Rendered,
+        ));
+        assert!(super::is_quit(
+            KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL),
+            crate::app::Mode::Raw,
+        ));
+        assert!(!super::is_quit(
+            KeyEvent::new(KeyCode::Char('q'), KeyModifiers::SUPER),
+            crate::app::Mode::Raw,
+        ));
+        assert!(!super::is_quit(
+            KeyEvent::new(KeyCode::Char('q'), KeyModifiers::SUPER),
+            crate::app::Mode::Rendered,
+        ));
+    }
+
+    #[test]
+    fn escape_is_handled_by_search_before_the_outer_quit_boundary() {
+        let source = "# Heading\n";
+        let mut app = App::new(source.into(), parse(source).unwrap());
+        let mut save = |_: &str| Ok("sha256:saved".to_owned());
+        let escape = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+        app.apply(Command::BeginSearch).unwrap();
+
+        assert!(!super::should_quit(&app, escape));
+        handle_key(&mut app, escape, &mut save).unwrap();
+
+        assert!(!app.search_active());
+        assert_eq!(app.status, "Rendered document focused");
+        assert!(super::should_quit(&app, escape));
     }
 
     #[test]

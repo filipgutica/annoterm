@@ -236,6 +236,110 @@ fn raw_selection_keeps_its_anchor_when_direction_changes() {
 }
 
 #[test]
+fn search_selects_literal_matches_in_both_modes_and_wraps() {
+    let source = "# Needle\n\nneedle\n\nNeedle again\n";
+    let mut app = App::new(source.into(), parse(source).unwrap());
+
+    app.apply(Command::BeginSearch).unwrap();
+    for character in "Needle".chars() {
+        app.apply(Command::AppendSearchCharacter(character))
+            .unwrap();
+    }
+    assert_eq!(app.selected_block, 0);
+    assert!(app.status.contains("1/3"));
+
+    app.apply(Command::NextSearchMatch).unwrap();
+    assert_eq!(app.selected_block, 1);
+    assert!(app.status.contains("2/3"));
+    app.apply(Command::NextSearchMatch).unwrap();
+    assert_eq!(app.selected_block, 2);
+    assert!(app.status.contains("3/3"));
+    app.apply(Command::NextSearchMatch).unwrap();
+    assert_eq!(app.selected_block, 0);
+    app.apply(Command::PreviousSearchMatch).unwrap();
+    assert_eq!(app.selected_block, 2);
+
+    app.apply(Command::ToggleMode).unwrap();
+    app.apply(Command::BeginSearch).unwrap();
+    for _ in 0..6 {
+        app.apply(Command::DeleteSearchCharacter).unwrap();
+    }
+    for character in "nEeDlE".chars() {
+        app.apply(Command::AppendSearchCharacter(character))
+            .unwrap();
+    }
+    assert_eq!(app.raw_selection, Some(2..8));
+    assert_eq!(app.cursor, 8);
+    assert!(app.status.contains("1/3"));
+
+    app.apply(Command::NextSearchMatch).unwrap();
+    assert_eq!(app.raw_selection, Some(10..16));
+}
+
+#[test]
+fn search_is_case_insensitive_for_unicode_without_losing_source_ranges() {
+    let source = "Ärger ärger ÄRGER";
+    let mut app = App::new(source.into(), parse(source).unwrap());
+    app.apply(Command::ToggleMode).unwrap();
+    app.apply(Command::BeginSearch).unwrap();
+    for character in "äRgEr".chars() {
+        app.apply(Command::AppendSearchCharacter(character))
+            .unwrap();
+    }
+
+    assert_eq!(app.raw_selection, Some(0..6));
+    assert!(app.status.contains("1/3"));
+    app.apply(Command::NextSearchMatch).unwrap();
+    assert_eq!(app.raw_selection, Some(7..13));
+    app.apply(Command::NextSearchMatch).unwrap();
+    assert_eq!(app.raw_selection, Some(14..20));
+
+    let source = "Straße STRASSE";
+    let mut expansion_app = App::new(source.into(), parse(source).unwrap());
+    expansion_app.apply(Command::ToggleMode).unwrap();
+    expansion_app.apply(Command::BeginSearch).unwrap();
+    for character in "strasse".chars() {
+        expansion_app
+            .apply(Command::AppendSearchCharacter(character))
+            .unwrap();
+    }
+    assert_eq!(expansion_app.raw_selection, Some(0..7));
+    expansion_app.apply(Command::NextSearchMatch).unwrap();
+    assert_eq!(expansion_app.raw_selection, Some(8..15));
+
+    let source = "Sß";
+    let mut adjacent_app = App::new(source.into(), parse(source).unwrap());
+    adjacent_app.apply(Command::ToggleMode).unwrap();
+    adjacent_app.apply(Command::BeginSearch).unwrap();
+    for character in "ss".chars() {
+        adjacent_app
+            .apply(Command::AppendSearchCharacter(character))
+            .unwrap();
+    }
+    assert_eq!(adjacent_app.raw_selection, Some(1..3));
+    assert!(adjacent_app.status.contains("1/1"));
+}
+
+#[test]
+fn search_backspace_is_grapheme_safe_and_reopening_retains_the_query() {
+    let source = "a🦀b";
+    let mut app = App::new(source.into(), parse(source).unwrap());
+    app.apply(Command::ToggleMode).unwrap();
+
+    app.apply(Command::BeginSearch).unwrap();
+    app.apply(Command::AppendSearchCharacter('🦀')).unwrap();
+    assert_eq!(app.raw_selection, Some(1..5));
+    app.apply(Command::DeleteSearchCharacter).unwrap();
+    assert_eq!(app.search_query(), "");
+    assert!(app.status.contains("type to search"));
+
+    app.apply(Command::AppendSearchCharacter('b')).unwrap();
+    app.apply(Command::CloseSearch).unwrap();
+    app.apply(Command::BeginSearch).unwrap();
+    assert_eq!(app.search_query(), "b");
+}
+
+#[test]
 fn selected_comment_can_be_edited_resolved_reopened_deleted_and_repaired() {
     let source = "# Heading\n\nParagraph\n";
     let mut app = App::new(source.into(), parse(source).unwrap());
