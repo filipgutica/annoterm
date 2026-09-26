@@ -22,6 +22,14 @@ Annoterm supports macOS and Linux.
 
 ## Quick start
 
+Install with Homebrew on macOS or Linux:
+
+```sh
+brew install filipgutica/tap/annoterm
+```
+
+The formula builds Annoterm from a tagged source release. To install from a local checkout instead, use Cargo:
+
 Annoterm requires Rust 1.88 or newer. Install Rust with [rustup](https://rustup.rs/) if the `cargo` command is not available.
 
 Clone and install Annoterm:
@@ -254,6 +262,16 @@ cargo clippy --locked --all-targets --all-features -- -D warnings
 ```
 
 See [the architecture guide](docs/architecture.md) for module boundaries and data flow.
+
+## Contributing and releases
+
+Submit changes through pull requests and squash merge them with a [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) title. Use `fix:` for a patch release, `feat:` for a minor release, and `!` after the type or scope for a major release, such as `feat!: change the command interface`. These rules also apply before version 1.0.0. A `BREAKING CHANGE:` footer in the squash commit body also triggers a major release.
+
+Other accepted types are `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, and `revert`. Documentation and maintenance changes alone do not create a release; `perf:` changes create a patch release.
+
+After a releasable change reaches `main`, Release Please opens or updates a release pull request with the version and changelog changes. Review that pull request and merge it after its required checks pass. The release workflow then creates the version tag and GitHub release. Update the formula in [the Homebrew tap](https://github.com/filipgutica/homebrew-tap) to use the new tag and source archive checksum.
+
+Release Please uses the repository's `GITHUB_TOKEN`. For its pull requests, GitHub puts CI runs in an approval-required state. A maintainer with write access must select **Approve workflows to run** in the pull request merge box before the required checks can run. See [GitHub's workflow trigger documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow).
 
 ## Current limits
 
