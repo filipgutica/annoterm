@@ -1,0 +1,182 @@
+/*
+ * Design language tokens. This file is the only place values live.
+ * DESIGN.md names these tokens; it never repeats their values.
+ *
+ * Standalone HTML and claude.ai artifacts: paste this whole file inline in a <style> tag.
+ * Repos: import it, or map these names onto the repo's own token system.
+ *
+ * Theme states: bare :root is light. prefers-color-scheme picks dark unless
+ * data-theme="light" is set. data-theme="dark" forces dark.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Neutrals, with a slight cool bias. */
+  --bg: #fcfcfd;
+  --surface: #f6f6f8;
+  --surface-raised: #ffffff;
+  --surface-hover: #efeff2;
+  --surface-selected: #e9ebf8;
+  --border-subtle: #e9e9ed;
+  --border: #d9d9df;
+  --text: #1b1b1f;
+  --text-muted: #62626d;
+  --text-faint: #8f8f9a;
+
+  /* One accent. Swap this pair to change the whole personality. */
+  --accent: #3d63dd;
+  --accent-text: #ffffff;
+  --accent-hover: #3354c4;
+
+  /* Status: only for state, never for decoration. */
+  --success: #1f8a5b;
+  --warning: #a4610f;
+  --danger: #c7372d;
+  --info: var(--accent);
+  --success-soft: color-mix(in srgb, var(--success) 11%, var(--bg));
+  --warning-soft: color-mix(in srgb, var(--warning) 12%, var(--bg));
+  --danger-soft: color-mix(in srgb, var(--danger) 10%, var(--bg));
+  --info-soft: color-mix(in srgb, var(--info) 10%, var(--bg));
+
+  /* Code */
+  --code-bg: var(--surface);
+  --code-text: var(--text);
+  --code-key: #3d63dd;
+  --code-string: #1f7a52;
+  --code-number: #a4610f;
+  --code-comment: var(--text-faint);
+
+  /* Type: system faces, no font loading. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --leading-tight: 1.25;
+  --leading: 1.5;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --tracking-tight: -0.01em;
+
+  /* Space: 4px rhythm. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Size */
+  --control-sm: 32px;
+  --control-md: 36px;
+  --control-lg: 44px;
+  --row: 36px;
+  --measure: 68ch;
+  --page-max: 960px;
+  --sidebar: 224px;
+
+  /* Shape */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+
+  /* Elevation: floating layers only (menus, popovers, dialogs). */
+  --shadow-popover: 0 8px 24px rgb(16 16 24 / 12%), 0 0 0 1px var(--border-subtle);
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration: 180ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Focus */
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0f0f11;
+    --surface: #151518;
+    --surface-raised: #1a1a1e;
+    --surface-hover: #1f1f24;
+    --surface-selected: #1f2233;
+    --border-subtle: #222227;
+    --border: #2e2e35;
+    --text: #ececf0;
+    --text-muted: #a0a0ab;
+    --text-faint: #6d6d78;
+    --accent: #7d97ff;
+    --accent-text: #0d1020;
+    --accent-hover: #97acff;
+    --success: #4cc38a;
+    --warning: #e2a54b;
+    --danger: #f0776c;
+    --code-key: #97acff;
+    --code-string: #6fd3a0;
+    --code-number: #e8b56a;
+    --shadow-popover: 0 8px 24px rgb(0 0 0 / 45%), 0 0 0 1px var(--border);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f0f11;
+  --surface: #151518;
+  --surface-raised: #1a1a1e;
+  --surface-hover: #1f1f24;
+  --surface-selected: #1f2233;
+  --border-subtle: #222227;
+  --border: #2e2e35;
+  --text: #ececf0;
+  --text-muted: #a0a0ab;
+  --text-faint: #6d6d78;
+  --accent: #7d97ff;
+  --accent-text: #0d1020;
+  --accent-hover: #97acff;
+  --success: #4cc38a;
+  --warning: #e2a54b;
+  --danger: #f0776c;
+  --code-key: #97acff;
+  --code-string: #6fd3a0;
+  --code-number: #e8b56a;
+  --shadow-popover: 0 8px 24px rgb(0 0 0 / 45%), 0 0 0 1px var(--border);
+}
+
+/* Minimal base. Component styles live in reference.html. */
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: var(--weight-regular) var(--text-md) / var(--leading) var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4, p { margin: 0; }
+h1, h2, h3, h4 { font-weight: var(--weight-semibold); line-height: var(--leading-tight); letter-spacing: var(--tracking-tight); text-wrap: balance; }
+code, kbd, pre { font-family: var(--font-mono); }
+table, .num { font-variant-numeric: tabular-nums; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; scroll-behavior: auto !important; }
+}
+
+/* Shared landing-page scale for the tool sites. */
+:root {
+  --page-max: 1152px;
+  --text-display: clamp(48px, 7vw, 88px);
+  --text-headline: var(--text-2xl);
+  --tracking-display: -0.06em;
+}

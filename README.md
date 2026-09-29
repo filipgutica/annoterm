@@ -2,15 +2,19 @@
 
 Review Markdown in the terminal. Send precise feedback to Codex, Claude Code, or another coding agent.
 
-[![Rust 1.88+](https://img.shields.io/badge/Rust-1.88%2B-000000?logo=rust)](https://www.rust-lang.org/)
+[![Release](https://img.shields.io/github/v/release/filipgutica/annoterm?color=2563eb)](https://github.com/filipgutica/annoterm/releases)
 [![CI](https://github.com/filipgutica/annoterm/actions/workflows/ci.yml/badge.svg)](https://github.com/filipgutica/annoterm/actions/workflows/ci.yml)
+[![Rust 1.88+](https://img.shields.io/badge/Rust-1.88%2B-000000?logo=rust)](Cargo.toml)
+[![macOS and Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-555555)](docs/terminal-support.md)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+**[Website](https://filipgutica.github.io/annoterm/)** · **[Quick start](#quick-start)** · **[Controls](#document-controls)** · **[Architecture](docs/architecture.md)**
 
 Annoterm renders Markdown, lets you attach comments to blocks or source selections, and turns open comments into a ready-to-paste prompt.
 
 Your document stays clean. Annoterm stores comments in a local JSON sidecar and re-anchors them when the source moves.
 
-## Why Annoterm?
+## What you can do
 
 - Read CommonMark and GitHub Flavored Markdown without leaving the terminal.
 - Edit and save the source when you need to make a direct change.
@@ -28,27 +32,7 @@ Install with Homebrew on macOS or Linux:
 brew install filipgutica/tap/annoterm
 ```
 
-The formula builds Annoterm from a tagged source release. To install from a local checkout instead, use Cargo:
-
-Annoterm requires Rust 1.88 or newer. Install Rust with [rustup](https://rustup.rs/) if the `cargo` command is not available.
-
-Clone and install Annoterm:
-
-```sh
-git clone https://github.com/filipgutica/annoterm.git
-cd annoterm
-cargo install --locked --path .
-```
-
-Cargo installs `annoterm` in its binary directory, which is usually `~/.cargo/bin`. Restart your shell if it cannot find the command.
-
-Verify the installation:
-
-```sh
-annoterm --help
-```
-
-Open the included README:
+Open a Markdown file:
 
 ```sh
 annoterm README.md
@@ -247,6 +231,20 @@ The local bundle opens the selected file in Terminal.app. See [the macOS install
 
 ## Build and test
 
+Annoterm requires Rust 1.88 or newer. Install Rust with [rustup](https://rustup.rs/) if `cargo` is not available.
+
+Clone and install from source:
+
+```sh
+git clone https://github.com/filipgutica/annoterm.git
+cd annoterm
+cargo install --locked --path .
+annoterm --help
+```
+
+Cargo installs `annoterm` in its binary directory, usually `~/.cargo/bin`. Restart your shell if it cannot find the command.
+The Homebrew formula also builds from source, using a tagged release.
+
 Build a release binary:
 
 ```sh
@@ -275,7 +273,7 @@ Release Please uses the repository's `GITHUB_TOKEN`. For its pull requests, GitH
 
 ## Current limits
 
-- Raw editing has bounded in-memory undo and redo, but no search or configurable keymap.
+- Raw editing has bounded in-memory undo and redo. The keymap is not configurable.
 - Rendered comments cover complete top-level blocks. Raw comments can cover arbitrary UTF-8 selections.
 - External changes stop a save. Annoterm does not include an interactive merge view.
 - Finder integration uses Terminal.app. The local app bundle is ad hoc signed and is not notarized.
