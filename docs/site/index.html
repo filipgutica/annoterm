@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Annoterm · Review Markdown in the terminal. Send precise feedback to your
+      coding agent.
+    </title>
+    <meta
+      name="description"
+      content="Review Markdown in the terminal. Send precise feedback to your coding agent."
+    />
+    <meta property="og:title" content="Annoterm" />
+    <meta
+      property="og:description"
+      content="Review Markdown in the terminal. Send precise feedback to your coding agent."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://filipgutica.github.io/annoterm/" />
+    <link rel="canonical" href="https://filipgutica.github.io/annoterm/" />
+    <link rel="stylesheet" href="./tokens.css" />
+    <link rel="stylesheet" href="./style.css" />
+    <script src="./site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <div class="page">
+      <header class="site-header">
+        <nav class="tool-nav" aria-label="Tools">
+          <a href="https://filipgutica.github.io/annoterm/" aria-current="page"
+            >annoterm</a
+          ><a href="https://filipgutica.github.io/wtree/">wtree</a
+          ><a href="https://filipgutica.github.io/devps/">devps</a>
+        </nav>
+        <div class="segmented" role="group" aria-label="Color theme" hidden>
+          <button type="button" data-theme-choice="system" aria-pressed="true">
+            System
+          </button>
+          <button type="button" data-theme-choice="light" aria-pressed="false">
+            Light
+          </button>
+          <button type="button" data-theme-choice="dark" aria-pressed="false">
+            Dark
+          </button>
+        </div>
+      </header>
+      <main id="main">
+        <div class="opening">
+          <section class="intro" aria-labelledby="title">
+            <h1 id="title">Annoterm</h1>
+            <p class="tagline">Read it. Mark it. Send it back.</p>
+            <p class="lede">
+              Review Markdown and turn your comments into precise feedback for a
+              coding agent.
+            </p>
+            <div class="actions">
+              <a class="btn primary" href="#install">Install with Homebrew</a
+              ><a class="btn" href="https://github.com/filipgutica/annoterm"
+                >View source</a
+              >
+            </div>
+            <p class="meta">macOS and Linux · Rust · MIT license</p>
+          </section>
+          <figure class="preview">
+            <a
+              href="./preview.png"
+              aria-label="Open full annoterm terminal preview"
+              ><img
+                src="./preview.png"
+                width="750"
+                height="520"
+                alt="Annoterm rendering sample release notes with a comment in the Comments panel."
+                fetchpriority="high"
+            /></a>
+            <figcaption>
+              Actual tool capture with demo data. Select to view full size.
+            </figcaption>
+          </figure>
+        </div>
+        <section id="install" aria-labelledby="install-title">
+          <h2 id="install-title">Install</h2>
+          <div class="example">
+            <div class="code">
+              <div class="code-head">
+                <span>Homebrew</span
+                ><button
+                  class="btn ghost"
+                  type="button"
+                  data-copy
+                  hidden
+                  aria-label="Copy homebrew command"
+                >
+                  Copy
+                </button>
+              </div>
+              <pre
+                tabindex="0"
+                aria-label="Homebrew command"
+              ><code>brew install filipgutica/tap/annoterm</code></pre>
+            </div>
+            <p class="copy-status" role="status"></p>
+            <p class="note">
+              Homebrew builds the tagged release from source and installs Rust
+              as a build dependency.
+            </p>
+          </div>
+          <p class="note">
+            Install <a href="https://brew.sh/">Homebrew</a> first if the brew
+            command is unavailable. See the
+            <a href="https://github.com/filipgutica/annoterm#quick-start"
+              >README</a
+            >
+            for installation details.
+          </p>
+        </section>
+        <section aria-labelledby="workflow-title">
+          <h2 id="workflow-title">From document to feedback</h2>
+          <div class="examples">
+            <div class="example">
+              <div class="example-copy">
+                <h3>Open a document</h3>
+                <p class="note">
+                  Select a rendered block with the arrow keys, then press a to
+                  add a comment.
+                </p>
+              </div>
+              <div class="code">
+                <div class="code-head">
+                  <span>Command</span
+                  ><button
+                    class="btn ghost"
+                    type="button"
+                    data-copy
+                    hidden
+                    aria-label="Copy open a document command"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <pre
+                  tabindex="0"
+                  aria-label="Open a document command"
+                ><code>annoterm README.md</code></pre>
+              </div>
+              <p class="copy-status" role="status"></p>
+            </div>
+            <div class="example">
+              <div class="example-copy">
+                <h3>Copy your feedback</h3>
+                <p class="note">
+                  Annoterm copies feedback after comment changes and again when
+                  you quit with open comments. Use this command to copy it
+                  again.
+                </p>
+              </div>
+              <div class="code">
+                <div class="code-head">
+                  <span>Command</span
+                  ><button
+                    class="btn ghost"
+                    type="button"
+                    data-copy
+                    hidden
+                    aria-label="Copy copy your feedback command"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <pre
+                  tabindex="0"
+                  aria-label="Copy your feedback command"
+                ><code>annoterm copy-feedback README.md</code></pre>
+              </div>
+              <p class="copy-status" role="status"></p>
+            </div>
+            <div class="example">
+              <div class="example-copy">
+                <h3>Export a review</h3>
+                <p class="note">
+                  Write the feedback to a file. Add --force only if you want to
+                  replace an existing export.
+                </p>
+              </div>
+              <div class="code">
+                <div class="code-head">
+                  <span>Command</span
+                  ><button
+                    class="btn ghost"
+                    type="button"
+                    data-copy
+                    hidden
+                    aria-label="Copy export a review command"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <pre
+                  tabindex="0"
+                  aria-label="Export a review command"
+                ><code>annoterm export README.md --output feedback.md</code></pre>
+              </div>
+              <p class="copy-status" role="status"></p>
+            </div>
+          </div>
+        </section>
+        <section aria-labelledby="reference-title">
+          <h2 id="reference-title">Keep these close</h2>
+          <dl class="reference">
+            <dt><code>Ctrl+R</code></dt>
+            <dd>Switch between rendered Markdown and raw source.</dd>
+            <dt><code>Ctrl+K</code></dt>
+            <dd>Comment on a raw selection or rendered block.</dd>
+            <dt><code>Ctrl+S</code></dt>
+            <dd>Save changes in raw mode.</dd>
+            <dt><code>q</code></dt>
+            <dd>Quit from rendered mode and copy open comments.</dd>
+          </dl>
+          <p class="note">
+            Comments live in a local JSON sidecar, separate from your document.
+            Saves stop if another process changed the source. On Linux,
+            clipboard support can require wl-copy or xclip.
+          </p>
+          <div class="actions">
+            <a class="btn" href="https://github.com/filipgutica/annoterm#readme"
+              >Read the full reference</a
+            ><a
+              class="btn"
+              href="https://github.com/filipgutica/annoterm/blob/main/docs/terminal-support.md"
+              >Terminal support</a
+            ><a
+              class="btn"
+              href="https://github.com/filipgutica/annoterm/blob/main/docs/annotation-format.md"
+              >Annotation format</a
+            >
+          </div>
+        </section>
+        <section aria-labelledby="related-title">
+          <h2 id="related-title">More tools for local work</h2>
+          <ul class="related">
+            <li>
+              <a href="https://filipgutica.github.io/wtree/"
+                ><code>wtree</code></a
+              >
+              <p>
+                See your Git worktrees, their pull requests, and what is ready
+                to clean up.
+              </p>
+            </li>
+            <li>
+              <a href="https://filipgutica.github.io/devps/"
+                ><code>devps</code></a
+              >
+              <p>
+                Find your local dev servers and the sessions that started them.
+              </p>
+            </li>
+          </ul>
+          <p class="note">
+            All three tools are available from
+            <a href="https://github.com/filipgutica/homebrew-tap"
+              >Filip’s Homebrew tap</a
+            >.
+          </p>
+        </section>
+      </main>
+      <footer>
+        <a href="https://github.com/filipgutica">Built by Filip Gutica</a
+        ><a href="https://github.com/filipgutica/annoterm/issues"
+          >Report an issue</a
+        ><a href="https://github.com/filipgutica/annoterm/releases">Releases</a
+        ><a href="https://github.com/filipgutica/annoterm/blob/main/LICENSE"
+          >MIT license</a
+        >
+      </footer>
+    </div>
+  </body>
+</html>
