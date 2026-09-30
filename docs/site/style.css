@@ -75,6 +75,23 @@ kbd {
   padding-inline: var(--space-2) 0;
   border-right: 1px solid var(--border-subtle);
 }
+.site-menu { flex: 1; min-width: 0; }
+.nav-content {
+  display: flex; flex-direction: column; gap: var(--space-8);
+  min-height: calc(100svh - var(--space-12) - var(--space-8));
+}
+.menu-toggle {
+  display: none; align-items: center; justify-content: end; gap: var(--space-2);
+  min-height: var(--control-lg); padding-inline: var(--space-3);
+  border-radius: var(--radius-md); color: var(--text-muted);
+  font: var(--weight-medium) var(--text-sm) / 1 var(--font-mono);
+  cursor: pointer; list-style: none;
+}
+.menu-toggle::-webkit-details-marker { display: none; }
+.menu-toggle:hover { color: var(--text); }
+.menu-toggle svg { width: var(--space-4); height: var(--space-4); }
+.menu-toggle .menu-close-icon, .site-menu[open] > .menu-toggle .menu-open-icon { display: none; }
+.site-menu[open] > .menu-toggle .menu-close-icon { display: block; }
 .family { display: flex; flex-direction: column; align-items: start; gap: 0 var(--space-1); }
 .family a {
   display: inline-flex; align-items: center;
@@ -310,16 +327,17 @@ footer a { display: inline-flex; align-items: center; min-height: var(--control-
   .split { grid-template-columns: minmax(0, 1fr); }
   .page { display: block; }
   .site-header {
-    position: static; flex-direction: row; flex-wrap: wrap; align-items: center;
+    position: static;
     min-height: 0; max-height: none; overflow: visible;
-    padding-inline: 0;
-    gap: var(--space-3) var(--space-4);
+    padding: var(--space-2) 0;
     border-right: 0; border-bottom: 1px solid var(--border-subtle);
   }
-  .family { flex-direction: row; flex-wrap: wrap; }
-  .section-nav { display: none; }
-  .appearance { grid-template-columns: auto auto; align-items: center; gap: var(--space-2); margin: 0; padding: 0; }
-  .appearance-label { display: none; }
+  .menu-toggle { display: flex; }
+  .nav-content { min-height: 0; gap: var(--space-4); padding-block: var(--space-4); }
+  .family { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+  .section-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .section-nav a { min-height: var(--control-lg); }
+  .appearance { margin-top: 0; }
   .stage-head { grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--control-lg) auto; }
   .tabs { grid-row: 1; }
   .stage-label { grid-column: 1; grid-row: 2; }

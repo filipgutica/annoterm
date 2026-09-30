@@ -2,6 +2,49 @@
 const root = document.documentElement;
 root.classList.add("js");
 
+/* Native disclosure on phones; the full rail stays open on desktop. */
+const siteMenu = document.querySelector("[data-site-menu]");
+const menuToggle = siteMenu?.querySelector("summary");
+if (siteMenu && menuToggle) {
+  const mobileMenu = matchMedia("(max-width: 800px)");
+  let menuFocus = siteMenu.contains(document.activeElement) ? document.activeElement : null;
+  const syncMenu = () => {
+    const focused = menuFocus;
+    siteMenu.open = !mobileMenu.matches;
+    if (!focused) return;
+    if (mobileMenu.matches) menuToggle.focus();
+    else if (focused === menuToggle) siteMenu.querySelector("a")?.focus();
+  };
+  syncMenu();
+  mobileMenu.addEventListener("change", syncMenu);
+  siteMenu.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !mobileMenu.matches || !siteMenu.open) return;
+    event.preventDefault();
+    siteMenu.open = false;
+    menuToggle.focus();
+  });
+  siteMenu.addEventListener("click", (event) => {
+    if (!mobileMenu.matches || !(event.target instanceof Element)) return;
+    const link = event.target.closest("a");
+    if (!link) return;
+    siteMenu.open = false;
+    if (!link.getAttribute("href")?.startsWith("#")) return;
+    const target = document.getElementById(link.hash.slice(1));
+    if (!target) return;
+    target.tabIndex = -1;
+    target.focus({ preventScroll: true });
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!(event.target instanceof Node) || siteMenu.contains(event.target)) return;
+    menuFocus = null;
+    if (mobileMenu.matches) siteMenu.open = false;
+  });
+  document.addEventListener("focusin", (event) => {
+    menuFocus = event.target instanceof Element && siteMenu.contains(event.target) ? event.target : null;
+    if (mobileMenu.matches && !menuFocus) siteMenu.open = false;
+  });
+}
+
 /* Theme: System follows the OS. The choice is remembered when storage works. */
 const themeButtons = document.querySelectorAll("[data-theme-choice]");
 const switcher = document.querySelector(".theme-switch");
