@@ -1,28 +1,12 @@
 /* Shared tool-site components. Values come from tokens.css.
    This file is identical in annoterm, wtree, and devps. Change all three together. */
 
-/* Terminal palette. Captures use ANSI classes (tf/tb 0-15) so both themes stay readable. */
+/* Terminal palette. The captures were made in a dark terminal, and some tools (fzf) paint their own
+   256-colour backgrounds, so the terminal stays dark in both page themes. Captures use ANSI classes
+   (tf/tb 0-15) so the palette stays in one place. */
 :root {
-  --t-bg: var(--code-bg);
-  --t-fg: var(--text);
-  --t-dim: #8f8f9a;
-  --t0: #1b1b1f; --t1: #c7372d; --t2: #1f7a52; --t3: #a4610f;
-  --t4: #3d63dd; --t5: #8e3aa6; --t6: #0e7481; --t7: #62626d;
-  --t8: #8f8f9a; --t9: #d14b41; --t10: #1f8a5b; --t11: #b5720f;
-  --t12: #3354c4; --t13: #a24dbb; --t14: #12909f; --t15: #ffffff;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --t-bg: #131316;
-    --t-dim: #6d6d78;
-    --t0: #2b2b31; --t1: #f0776c; --t2: #4cc38a; --t3: #e2a54b;
-    --t4: #3d63dd; --t5: #c792ea; --t6: #5fd3d9; --t7: #c8c8d0;
-    --t8: #6d6d78; --t9: #ff8f85; --t10: #6fd3a0; --t11: #e8b56a;
-    --t12: #7d97ff; --t13: #d9a8f0; --t14: #8ee3e8; --t15: #ffffff;
-  }
-}
-:root[data-theme="dark"] {
   --t-bg: #131316;
+  --t-fg: #e6e6ea;
   --t-dim: #6d6d78;
   --t0: #2b2b31; --t1: #f0776c; --t2: #4cc38a; --t3: #e2a54b;
   --t4: #3d63dd; --t5: #c792ea; --t6: #5fd3d9; --t7: #c8c8d0;
@@ -185,12 +169,14 @@ h1 {
 .tabs button[aria-selected="true"] { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
 .stage-label { padding-bottom: var(--space-2); color: var(--text-faint); font-size: var(--text-xs); }
 .stage-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
-.frames { display: grid; min-width: 0; }
+.frames { display: grid; gap: var(--space-8); min-width: 0; }
+.js .frames { gap: 0; }
 .frame {
-  grid-area: 1 / 1; display: grid; align-content: start; align-items: start; min-width: 0;
+  display: grid; align-content: start; align-items: start; min-width: 0;
   grid-template-columns: minmax(0, max-content) minmax(15rem, 1fr);
   gap: var(--space-3) var(--space-8);
 }
+.js .frame { grid-area: 1 / 1; }
 .js .frame[hidden] { display: grid !important; visibility: hidden; opacity: 0; }
 .js .frame { transition: opacity var(--duration) var(--ease-out); }
 .frame-title { grid-column: 1 / -1; font-size: var(--text-sm); color: var(--text-muted); }
