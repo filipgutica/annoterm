@@ -2,46 +2,77 @@
 const root = document.documentElement;
 root.classList.add("js");
 
-/* Native disclosure on phones; the full rail stays open on desktop. */
+/* Mobile modal drawer; the same navigation stays in the desktop rail. */
 const siteMenu = document.querySelector("[data-site-menu]");
 const menuToggle = siteMenu?.querySelector("summary");
-if (siteMenu && menuToggle) {
+const menuContent = siteMenu?.querySelector(".nav-content");
+const menuDrawer = document.querySelector("#site-menu-drawer");
+if (siteMenu && menuToggle && menuContent && menuDrawer) {
   const mobileMenu = matchMedia("(max-width: 800px)");
   let menuFocus = siteMenu.contains(document.activeElement) ? document.activeElement : null;
+  const closeMenu = () => {
+    menuDrawer.close();
+    root.classList.remove("menu-open");
+    siteMenu.open = !mobileMenu.matches;
+  };
   const syncMenu = () => {
     const focused = menuFocus;
+    if (menuDrawer.open) closeMenu();
+    if (mobileMenu.matches) {
+      menuDrawer.append(menuContent);
+      menuToggle.setAttribute("aria-controls", menuDrawer.id);
+      menuToggle.setAttribute("aria-haspopup", "dialog");
+    } else {
+      siteMenu.append(menuContent);
+      menuToggle.setAttribute("aria-controls", menuContent.id);
+      menuToggle.removeAttribute("aria-haspopup");
+    }
     siteMenu.open = !mobileMenu.matches;
     if (!focused) return;
     if (mobileMenu.matches) menuToggle.focus();
-    else if (focused === menuToggle) siteMenu.querySelector("a")?.focus();
+    else if (menuContent.contains(focused)) focused.focus();
+    else menuContent.querySelector("a")?.focus();
   };
   syncMenu();
   mobileMenu.addEventListener("change", syncMenu);
-  siteMenu.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape" || !mobileMenu.matches || !siteMenu.open) return;
+  menuToggle.addEventListener("click", (event) => {
+    if (!mobileMenu.matches) return;
     event.preventDefault();
-    siteMenu.open = false;
-    menuToggle.focus();
+    siteMenu.open = true;
+    root.classList.add("menu-open");
+    menuDrawer.showModal();
   });
-  siteMenu.addEventListener("click", (event) => {
-    if (!mobileMenu.matches || !(event.target instanceof Element)) return;
+  menuDrawer.querySelector(".drawer-close")?.addEventListener("click", closeMenu);
+  menuDrawer.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeMenu();
+  });
+  menuDrawer.addEventListener("close", () => {
+    if (!menuDrawer.open) closeMenu();
+  });
+  menuDrawer.addEventListener("click", (event) => {
+    if (!(event.target instanceof Element)) return;
+    if (event.target === menuDrawer) {
+      const { left, right, top, bottom } = menuDrawer.getBoundingClientRect();
+      if (event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom) closeMenu();
+      return;
+    }
     const link = event.target.closest("a");
-    if (!link) return;
-    siteMenu.open = false;
-    if (!link.getAttribute("href")?.startsWith("#")) return;
-    const target = document.getElementById(link.hash.slice(1));
-    if (!target) return;
-    target.tabIndex = -1;
-    target.focus({ preventScroll: true });
+    if (link) {
+      closeMenu();
+      if (!link.getAttribute("href")?.startsWith("#")) return;
+      const target = document.getElementById(link.hash.slice(1));
+      if (!target) return;
+      target.tabIndex = -1;
+      target.focus({ preventScroll: true });
+    }
   });
   document.addEventListener("pointerdown", (event) => {
-    if (!(event.target instanceof Node) || siteMenu.contains(event.target)) return;
+    if (!(event.target instanceof Node) || siteMenu.contains(event.target) || menuDrawer.contains(event.target)) return;
     menuFocus = null;
-    if (mobileMenu.matches) siteMenu.open = false;
   });
   document.addEventListener("focusin", (event) => {
-    menuFocus = event.target instanceof Element && siteMenu.contains(event.target) ? event.target : null;
-    if (mobileMenu.matches && !menuFocus) siteMenu.open = false;
+    menuFocus = event.target instanceof HTMLElement && (siteMenu.contains(event.target) || menuDrawer.contains(event.target)) ? event.target : null;
   });
 }
 
