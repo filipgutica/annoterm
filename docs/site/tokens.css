@@ -180,3 +180,11 @@ a:hover { text-decoration: underline; }
   --text-headline: var(--text-2xl);
   --tracking-display: -0.06em;
 }
+
+/* Navigation and motion for the shared tool pages. */
+:root {
+  --site-nav-width: 160px;
+  --duration-reveal: 320ms;
+  --theme-track-shadow: inset 0 1px 3px color-mix(in srgb, var(--text) 16%, transparent), 0 1px 0 var(--surface-raised);
+  --theme-thumb-shadow: 0 1px 3px color-mix(in srgb, var(--text) 14%, transparent), inset 0 1px 0 var(--surface-raised);
+}

@@ -4,6 +4,8 @@ root.classList.add("js");
 
 /* Theme: System follows the OS. The choice is remembered when storage works. */
 const themeButtons = document.querySelectorAll("[data-theme-choice]");
+const switcher = document.querySelector(".theme-switch");
+const themeLabel = document.querySelector("[data-theme-label]");
 const systemDark = matchMedia("(prefers-color-scheme: dark)");
 const systemButton = document.querySelector('[data-theme-choice="system"]');
 const describeSystem = () => {
@@ -20,6 +22,8 @@ const setTheme = (choice) => {
       String(button.dataset.themeChoice === choice),
     ),
   );
+  if (switcher) switcher.dataset.choice = choice;
+  if (themeLabel) themeLabel.textContent = choice[0].toUpperCase() + choice.slice(1);
 };
 let savedTheme = "system";
 try {
@@ -32,8 +36,8 @@ setTheme(
 );
 describeSystem();
 systemDark.addEventListener("change", describeSystem);
-const switcher = document.querySelector(".segmented");
-if (switcher) switcher.hidden = false;
+const appearance = document.querySelector(".appearance");
+if (appearance) appearance.hidden = false;
 themeButtons.forEach((button) =>
   button.addEventListener("click", () => {
     const choice = button.dataset.themeChoice;
@@ -117,3 +121,27 @@ document.querySelectorAll("[data-stage]").forEach((stage) => {
   list.hidden = false;
   select(0, false);
 });
+
+/* Reveal offscreen documentation once. Above-the-fold content never starts hidden. */
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+if ("IntersectionObserver" in window && !reducedMotion.matches) {
+  const sections = [...document.querySelectorAll(".stage, main > .split")];
+  const reveal = (section) => section.classList.remove("reveal-pending");
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(({ target, isIntersecting }) => {
+      if (!isIntersecting) return;
+      reveal(target);
+      observer.unobserve(target);
+    });
+  });
+  sections.forEach((section) => {
+    if (section.getBoundingClientRect().top < innerHeight) return;
+    section.classList.add("scroll-reveal", "reveal-pending");
+    observer.observe(section);
+  });
+  reducedMotion.addEventListener("change", ({ matches }) => {
+    if (!matches) return;
+    sections.forEach(reveal);
+    observer.disconnect();
+  });
+}
