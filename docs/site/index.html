@@ -3,22 +3,26 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>
-      Annoterm · Review Markdown in the terminal. Send precise feedback to your
-      coding agent.
-    </title>
-    <meta
-      name="description"
-      content="Review Markdown in the terminal. Send precise feedback to your coding agent."
-    />
-    <meta property="og:title" content="Annoterm" />
-    <meta
-      property="og:description"
-      content="Review Markdown in the terminal. Send precise feedback to your coding agent."
-    />
+    <meta name="color-scheme" content="light dark" />
+    <title>annoterm: review Markdown in the terminal</title>
+    <meta name="description" content="Review Markdown in the terminal. Comments become precise feedback for Codex, Claude Code, or another coding agent." />
+    <meta property="og:title" content="annoterm" />
+    <meta property="og:description" content="Review Markdown in the terminal. Comments become precise feedback for Codex, Claude Code, or another coding agent." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://filipgutica.github.io/annoterm/" />
     <link rel="canonical" href="https://filipgutica.github.io/annoterm/" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233d63dd'/%3E%3Ctext x='16' y='23' font-family='ui-monospace,Menlo,monospace' font-size='20' font-weight='700' text-anchor='middle' fill='white'%3Ea%3C/text%3E%3C/svg%3E"
+    />
+    <script>
+      try {
+        const theme = localStorage.getItem("tool-site-theme");
+        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+      } catch {
+        /* The system theme works without storage. */
+      }
+    </script>
     <link rel="stylesheet" href="./tokens.css" />
     <link rel="stylesheet" href="./style.css" />
     <script src="./site.js" defer></script>
@@ -27,252 +31,226 @@
     <a class="skip" href="#main">Skip to content</a>
     <div class="page">
       <header class="site-header">
-        <nav class="tool-nav" aria-label="Tools">
-          <a href="https://filipgutica.github.io/annoterm/" aria-current="page"
-            >annoterm</a
-          ><a href="https://filipgutica.github.io/wtree/">wtree</a
-          ><a href="https://filipgutica.github.io/devps/">devps</a>
+        <nav class="family" aria-label="Tools">
+          <a href="https://filipgutica.github.io/annoterm/" aria-current="page">annoterm</a>
+          <a href="https://filipgutica.github.io/wtree/">wtree</a>
+          <a href="https://filipgutica.github.io/devps/">devps</a>
+          <a href="https://filipgutica.github.io/t3code/">workbench</a>
         </nav>
         <div class="segmented" role="group" aria-label="Color theme" hidden>
-          <button type="button" data-theme-choice="system" aria-pressed="true">
-            System
-          </button>
-          <button type="button" data-theme-choice="light" aria-pressed="false">
-            Light
-          </button>
-          <button type="button" data-theme-choice="dark" aria-pressed="false">
-            Dark
-          </button>
+          <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
+          <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
+          <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
         </div>
       </header>
       <main id="main">
-        <div class="opening">
-          <section class="intro" aria-labelledby="title">
-            <h1 id="title">Annoterm</h1>
+        <div>
+          <section class="hero" aria-labelledby="title">
+            <h1 id="title">annoterm</h1>
             <p class="tagline">Read it. Mark it. Send it back.</p>
-            <p class="lede">
-              Review Markdown and turn your comments into precise feedback for a
-              coding agent.
-            </p>
-            <div class="actions">
-              <a class="btn primary" href="#install">Install with Homebrew</a
-              ><a class="btn" href="https://github.com/filipgutica/annoterm"
-                >View source</a
-              >
+            <p class="lede">Review Markdown in the terminal. Your comments become precise feedback for Codex, Claude Code, or another coding agent.</p>
+            <div id="install" class="prompt" data-copy-scope>
+              <span class="sigil" aria-hidden="true">$</span>
+              <code data-copy-text>brew install filipgutica/tap/annoterm</code>
+              <button class="btn primary" type="button" data-copy hidden aria-label="Copy install command">Copy</button>
             </div>
-            <p class="meta">macOS and Linux · Rust · MIT license</p>
+            <p class="hint">Homebrew builds annoterm from source and installs Rust to do it. New to Homebrew? <a href="https://brew.sh/">Install it first</a>.</p>
+            <dl class="facts">
+              <div><dt>Runs on</dt><dd>macOS and Linux</dd></div>
+              <div><dt>Written in</dt><dd>Rust</dd></div>
+              <div><dt>License</dt><dd>MIT</dd></div>
+              <div><dt>Source</dt><dd><a href="https://github.com/filipgutica/annoterm">filipgutica/annoterm</a></dd></div>
+            </dl>
           </section>
-          <figure class="preview">
-            <a
-              href="./preview.png"
-              aria-label="Open full annoterm terminal preview"
-              ><img
-                src="./preview.png"
-                width="750"
-                height="520"
-                alt="Annoterm rendering sample release notes with a comment in the Comments panel."
-                fetchpriority="high"
-            /></a>
-            <figcaption>
-              Actual tool capture with demo data. Select to view full size.
-            </figcaption>
-          </figure>
+          <section class="stage" data-stage aria-label="annoterm in use">
+            <div class="stage-head">
+              <div class="tabs" data-tabs hidden aria-label="Steps"></div>
+              <p class="stage-label">Demo document. Captured from annoterm 0.2.0.</p>
+            </div>
+            <div class="stage-body">
+              <div class="frames">
+                <figure class="frame" id="frame-read" data-tab="Read">
+                  <h3 class="frame-title">Read</h3>
+                  <div class="term-wrap" tabindex="0" role="region" aria-label="Terminal capture: Read">
+<pre class="term" role="img" aria-label="annoterm showing a Markdown document with a paragraph selected and an empty Comments panel." data-cols="100">Rendered mode · Ctrl+R switches to raw mode
+┌Rendered · selected block: lines 7–7────────────────────────────────────────────┐┌Comments (0)────┐
+│  <span class="tbold tul">Retry policy</span>                                                                  ││No comments yet │
+│  ━━━━━━━━━━━━                                                                  ││                │
+│                                                                                ││                │
+│  Design notes for the sync worker.                                             ││                │
+│                                                                                ││                │
+│  <span class="tbold">Behavior</span>                                                                      ││                │
+│  ────────                                                                      ││                │
+│                                                                                ││                │
+│<span class="tf15 tb4 tbold">› Retries use a fixed five-second delay. The worker stops after three attempts.</span> ││                │
+│                                                                                ││                │
+│  ┌─────────┬─────────┬───────┐                                                 ││                │
+│  │ <span class="tbold">Error</span>   <span class="tf-dim">│</span> <span class="tf-dim tbold">Retried</span> <span class="tf-dim">│</span> <span class="tf-dim tbold">Delay</span> <span class="tf-dim">│</span>                                                 <span class="tf-dim">││</span>                <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  ├─────────┼─────────┼───────┤                                                 ││                │
+│  │ Timeout <span class="tf-dim">│</span> <span class="tf-dim">yes</span>     <span class="tf-dim">│</span> <span class="tf-dim">5s</span>    <span class="tf-dim">│</span>                                                 <span class="tf-dim">││</span>                <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  ├─────────┼─────────┼───────┤                                                 ││                │
+│  │ 4xx     <span class="tf-dim">│</span> <span class="tf-dim">no</span>      <span class="tf-dim">│</span> <span class="tf-dim">none</span>  <span class="tf-dim">│</span>                                                 <span class="tf-dim">││</span>                <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  ├─────────┼─────────┼───────┤                                                 ││                │
+│  │ 5xx     <span class="tf-dim">│</span> <span class="tf-dim">yes</span>     <span class="tf-dim">│</span> <span class="tf-dim">5s</span>    <span class="tf-dim">│</span>                                                 <span class="tf-dim">││</span>                <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  └─────────┴─────────┴───────┘                                                 ││                │
+│                                                                                ││                │
+│  <span class="tbold">Rollout</span>                                                                       ││                │
+│  ───────                                                                       ││                │
+│                                                                                ││                │
+│  [x] Add the retry wrapper                                                     ││                │
+│  [ ] Emit a metric for each attempt                                            ││                │
+│                                                                                ││                │
+│                                                                                ││                │
+└────────────────────────────────────────────────────────────────────────────────┘└────────────────┘
+<span class="tf-bg tb-fg"><i>↑</i>/<i>↓</i>/wheel Blocks · a Comment · / Search · Ctrl+R Raw · ? Help                                       </span></pre>
+                  </div>
+                  <figcaption class="frame-cap">
+                    <code>annoterm docs/retry-policy.md</code>
+                    <p>Opens in rendered mode. The arrow keys select a block. The Comments panel starts empty.</p>
+                  </figcaption>
+                </figure>
+                <figure class="frame" id="frame-mark" data-tab="Mark">
+                  <h3 class="frame-title">Mark</h3>
+                  <div class="term-wrap" tabindex="0" role="region" aria-label="Terminal capture: Mark">
+<pre class="term" role="img" aria-label="annoterm with one open comment on the selected paragraph, listed in the Comments panel." data-cols="100">Comment added
+┌Rendered · selected block: lines 7–7──────────────────────────────────┐┌Comments (1)──────────────┐
+│  <span class="tbold tul">Retry policy</span>                                                        ││<span class="tf15 tb4 tbold">› 1/1 · Open (in feedback)</span>│
+│  ━━━━━━━━━━━━                                                        ││<span class="tf15 tb4 tbold">  Explain why this uses a</span> │
+│                                                                      ││<span class="tf15 tb4 tbold">fixed delay instead of</span>    │
+│  Design notes for the sync worker.                                   ││<span class="tf15 tb4 tbold">exponential backoff.</span>      │
+│                                                                      ││                          │
+│  <span class="tbold">Behavior</span>                                                            ││                          │
+│  ────────                                                            ││                          │
+│                                                                      ││                          │
+│<span class="tf15 tb4 tbold"><i>●</i> Retries use a fixed five-second delay. The worker stops after three</span> ││                          │
+│<span class="tf15 tb4 tbold">attempts.</span>                                                             ││                          │
+│                                                                      ││                          │
+│  <span class="tf-dim">┌─────────┬─────────┬───────┐</span>                                       <span class="tf-dim">││</span>                          <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  <span class="tf-dim">│</span> <span class="tf-dim tbold">Error</span>   <span class="tf-dim">│</span> <span class="tf-dim tbold">Retried</span> <span class="tf-dim">│</span> <span class="tf-dim tbold">Delay</span> <span class="tf-dim">│</span>                                       <span class="tf-dim">││</span>                          │
+│  <span class="tf-dim">├─────────┼─────────┼───────┤</span>                                       <span class="tf-dim">││</span>                          <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  <span class="tf-dim">│</span> <span class="tf-dim">Timeout</span> <span class="tf-dim">│</span> <span class="tf-dim">yes</span>     <span class="tf-dim">│</span> <span class="tf-dim">5s</span>    <span class="tf-dim">│</span>                                       <span class="tf-dim">││</span>                          │
+│  <span class="tf-dim">├─────────┼─────────┼───────┤</span>                                       <span class="tf-dim">││</span>                          <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  <span class="tf-dim">│</span> <span class="tf-dim">4xx</span>     <span class="tf-dim">│</span> <span class="tf-dim">no</span>      <span class="tf-dim">│</span> <span class="tf-dim">none</span>  <span class="tf-dim">│</span>                                       <span class="tf-dim">││</span>                          │
+│  <span class="tf-dim">├─────────┼─────────┼───────┤</span>                                       <span class="tf-dim">││</span>                          <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  <span class="tf-dim">│</span> <span class="tf-dim">5xx</span>     <span class="tf-dim">│</span> <span class="tf-dim">yes</span>     <span class="tf-dim">│</span> <span class="tf-dim">5s</span>    <span class="tf-dim">│</span>                                       <span class="tf-dim">││</span>                          │
+│  └─────────┴─────────┴───────┘                                       ││                          │
+│                                                                      ││                          │
+│  <span class="tbold">Rollout</span>                                                             ││                          │
+│  ───────                                                             ││                          │
+│                                                                      ││                          │
+│  [x] Add the retry wrapper                                           ││                          │
+│  [ ] Emit a metric for each attempt                                  ││                          │
+│                                                                      ││                          │
+└──────────────────────────────────────────────────────────────────────┘└──────────────────────────┘
+<span class="tf-bg tb-fg"><i>↑</i>/<i>↓</i> Blocks · a Comment · [/] Comments · j Jump · e Edit · x Resolve · ? Help                        </span></pre>
+                  </div>
+                  <figcaption class="frame-cap">
+                    <code>a, then Enter</code>
+                    <p>Write the comment and press Enter. It saves to a sidecar file, so the Markdown stays unchanged.</p>
+                  </figcaption>
+                </figure>
+                <figure class="frame" id="frame-send" data-tab="Send">
+                  <h3 class="frame-title">Send</h3>
+                  <div class="term-wrap" tabindex="0" role="region" aria-label="Terminal capture: Send">
+<pre class="term" role="img" aria-label="The feedback file that annoterm exports, with the document path, the quoted paragraph, and the comment." data-cols="100"># Annoterm feedback
+
+Document: `../sync-worker/docs/retry-policy.md`
+Fingerprint: `sha256:ddea214df829949a13d370cd2a429da4d48fdd65cab7521512e90d1af4a8cece`
+
+Update the document to address every open annotation. Preserve unrelated content.
+Keep annotation identifiers in your response so the changes can be reviewed.
+
+## Annotation `01a0efd0-2bde-7b93-b707-1469e866e604`
+
+Location: lines 7–7
+State: anchored
+
+Selected text:
+
+&gt; Retries use a fixed five-second delay. The worker stops after three attempts.
+
+Comment:
+
+Explain why this uses a fixed delay instead of exponential backoff.</pre>
+                  </div>
+                  <figcaption class="frame-cap">
+                    <code>annoterm export docs/retry-policy.md --output feedback.md</code>
+                    <p>Each open comment carries its location, the quoted text, and a stable ID.</p>
+                  </figcaption>
+                </figure>
+              </div>
+              <aside class="legend" aria-labelledby="legend-title">
+                <h3 id="legend-title">On screen</h3>
+                <dl style="--cols: 4">
+                  <div><dt>●</dt><dd>A comment is anchored to this block.</dd></div>
+                  <div><dt>◌</dt><dd>The comment is outdated and shown at an approximate spot.</dd></div>
+                  <div><dt>Open</dt><dd>Open comments go into the feedback. Resolved ones stay in the sidecar and are left out.</dd></div>
+                  <div><dt>Bottom bar</dt><dd>Shortcuts for the pane you are in.</dd></div>
+                </dl>
+              </aside>
+            </div>
+          </section>
         </div>
-        <section id="install" aria-labelledby="install-title">
-          <h2 id="install-title">Install</h2>
-          <div class="example">
-            <div class="code">
-              <div class="code-head">
-                <span>Homebrew</span
-                ><button
-                  class="btn ghost"
-                  type="button"
-                  data-copy
-                  hidden
-                  aria-label="Copy homebrew command"
-                >
-                  Copy
-                </button>
-              </div>
-              <pre
-                tabindex="0"
-                aria-label="Homebrew command"
-              ><code>brew install filipgutica/tap/annoterm</code></pre>
-            </div>
-            <p class="copy-status" role="status"></p>
-            <p class="note">
-              Homebrew builds the tagged release from source and installs Rust
-              as a build dependency.
-            </p>
-          </div>
-          <p class="note">
-            Install <a href="https://brew.sh/">Homebrew</a> first if the brew
-            command is unavailable. See the
-            <a href="https://github.com/filipgutica/annoterm#quick-start"
-              >README</a
-            >
-            for installation details.
-          </p>
-        </section>
-        <section aria-labelledby="workflow-title">
-          <h2 id="workflow-title">From document to feedback</h2>
-          <div class="examples">
-            <div class="example">
-              <div class="example-copy">
-                <h3>Open a document</h3>
-                <p class="note">
-                  Select a rendered block with the arrow keys, then press a to
-                  add a comment.
-                </p>
-              </div>
-              <div class="code">
-                <div class="code-head">
-                  <span>Command</span
-                  ><button
-                    class="btn ghost"
-                    type="button"
-                    data-copy
-                    hidden
-                    aria-label="Copy open a document command"
-                  >
-                    Copy
-                  </button>
-                </div>
-                <pre
-                  tabindex="0"
-                  aria-label="Open a document command"
-                ><code>annoterm README.md</code></pre>
-              </div>
-              <p class="copy-status" role="status"></p>
-            </div>
-            <div class="example">
-              <div class="example-copy">
-                <h3>Copy your feedback</h3>
-                <p class="note">
-                  Annoterm copies feedback after comment changes and again when
-                  you quit with open comments. Use this command to copy it
-                  again.
-                </p>
-              </div>
-              <div class="code">
-                <div class="code-head">
-                  <span>Command</span
-                  ><button
-                    class="btn ghost"
-                    type="button"
-                    data-copy
-                    hidden
-                    aria-label="Copy copy your feedback command"
-                  >
-                    Copy
-                  </button>
-                </div>
-                <pre
-                  tabindex="0"
-                  aria-label="Copy your feedback command"
-                ><code>annoterm copy-feedback README.md</code></pre>
-              </div>
-              <p class="copy-status" role="status"></p>
-            </div>
-            <div class="example">
-              <div class="example-copy">
-                <h3>Export a review</h3>
-                <p class="note">
-                  Write the feedback to a file. Add --force only if you want to
-                  replace an existing export.
-                </p>
-              </div>
-              <div class="code">
-                <div class="code-head">
-                  <span>Command</span
-                  ><button
-                    class="btn ghost"
-                    type="button"
-                    data-copy
-                    hidden
-                    aria-label="Copy export a review command"
-                  >
-                    Copy
-                  </button>
-                </div>
-                <pre
-                  tabindex="0"
-                  aria-label="Export a review command"
-                ><code>annoterm export README.md --output feedback.md</code></pre>
-              </div>
-              <p class="copy-status" role="status"></p>
-            </div>
-          </div>
-        </section>
-        <section aria-labelledby="reference-title">
-          <h2 id="reference-title">Keep these close</h2>
-          <dl class="reference">
-            <dt><code>Ctrl+R</code></dt>
-            <dd>Switch between rendered Markdown and raw source.</dd>
-            <dt><code>Ctrl+K</code></dt>
-            <dd>Comment on a raw selection or rendered block.</dd>
-            <dt><code>Ctrl+S</code></dt>
-            <dd>Save changes in raw mode.</dd>
-            <dt><code>q</code></dt>
-            <dd>Quit from rendered mode and copy open comments.</dd>
-          </dl>
-          <p class="note">
-            Comments live in a local JSON sidecar, separate from your document.
-            Saves stop if another process changed the source. On Linux,
-            clipboard support can require wl-copy or xclip.
-          </p>
-          <div class="actions">
-            <a class="btn" href="https://github.com/filipgutica/annoterm#readme"
-              >Read the full reference</a
-            ><a
-              class="btn"
-              href="https://github.com/filipgutica/annoterm/blob/main/docs/terminal-support.md"
-              >Terminal support</a
-            ><a
-              class="btn"
-              href="https://github.com/filipgutica/annoterm/blob/main/docs/annotation-format.md"
-              >Annotation format</a
-            >
-          </div>
-        </section>
-        <section aria-labelledby="related-title">
-          <h2 id="related-title">More tools for local work</h2>
-          <ul class="related">
-            <li>
-              <a href="https://filipgutica.github.io/wtree/"
-                ><code>wtree</code></a
-              >
-              <p>
-                See your Git worktrees, their pull requests, and what is ready
-                to clean up.
-              </p>
-            </li>
-            <li>
-              <a href="https://filipgutica.github.io/devps/"
-                ><code>devps</code></a
-              >
-              <p>
-                Find your local dev servers and the sessions that started them.
-              </p>
-            </li>
+        <section class="split" aria-labelledby="commands-title">
+          <header>
+            <h2 id="commands-title">Commands</h2>
+            <p>annoterm copies feedback after each comment change, and again when you quit with open comments.</p>
+          </header>
+          <ul class="rows">
+            <li class="row" data-copy-scope><div class="cmd"><code data-copy-text>annoterm README.md</code><button class="btn ghost" type="button" data-copy hidden aria-label="Copy open command">Copy</button></div><p>Open a Markdown file in rendered mode.</p></li>
+            <li class="row" data-copy-scope><div class="cmd"><code data-copy-text>annoterm copy-feedback README.md</code><button class="btn ghost" type="button" data-copy hidden aria-label="Copy copy-feedback command">Copy</button></div><p>Copy the feedback again if another app replaced your clipboard.</p></li>
+            <li class="row" data-copy-scope><div class="cmd"><code data-copy-text>annoterm export README.md --output feedback.md</code><button class="btn ghost" type="button" data-copy hidden aria-label="Copy export command">Copy</button></div><p>Write the feedback to a file. Add <code>--force</code> to replace an existing file.</p></li>
           </ul>
-          <p class="note">
-            All three tools are available from
-            <a href="https://github.com/filipgutica/homebrew-tap"
-              >Filip’s Homebrew tap</a
-            >.
-          </p>
+        </section>
+        <section class="split narrow" aria-labelledby="keys-title">
+          <header>
+            <h2 id="keys-title">Keys</h2>
+            <p>Press <kbd>?</kbd> in the app for the full list.</p>
+          </header>
+          <ul class="rows">
+            <li class="row"><kbd>a</kbd><p>Comment on the selected block.</p></li>
+            <li class="row"><kbd>Ctrl+R</kbd><p>Switch between rendered Markdown and raw source.</p></li>
+            <li class="row"><kbd>Ctrl+K</kbd><p>Comment on a raw selection or a rendered block.</p></li>
+            <li class="row"><kbd>Ctrl+S</kbd><p>Save changes in raw mode.</p></li>
+            <li class="row"><kbd>q</kbd><p>Quit from rendered mode and copy open comments.</p></li>
+          </ul>
+        </section>
+        <section class="split" aria-labelledby="limits-title">
+          <header>
+            <h2 id="limits-title">Good to know</h2>
+          </header>
+          <div class="text-rows">
+            <p><strong>Comments stay outside your document.</strong> annoterm stores them in a JSON sidecar under <code>~/.annoterm</code> and re-anchors them when the source moves.</p>
+            <p><strong>Saves stop if another process changed the file.</strong> There is no merge view.</p>
+            <p><strong>On Linux, copying can need a helper.</strong> Install <code>wl-copy</code> for Wayland or <code>xclip</code> for X11. annoterm falls back to OSC 52.</p>
+            <nav class="links" aria-label="Documentation">
+              <a href="https://github.com/filipgutica/annoterm#readme">Full reference</a>
+              <a href="https://github.com/filipgutica/annoterm/blob/main/docs/terminal-support.md">Terminal support</a>
+              <a href="https://github.com/filipgutica/annoterm/blob/main/docs/annotation-format.md">Annotation format</a>
+            </nav>
+          </div>
+        </section>
+        <section class="split" aria-labelledby="family-title">
+          <header>
+            <h2 id="family-title">Also from Filip</h2>
+            <p>The three terminal tools install from <a href="https://github.com/filipgutica/homebrew-tap">one Homebrew tap</a>.</p>
+          </header>
+          <ul class="rows narrow">
+            <li class="row"><a href="https://filipgutica.github.io/wtree/"><code>wtree</code></a><p>List Git worktrees with age and pull request state, then clean up the finished ones.</p></li>
+            <li class="row"><a href="https://filipgutica.github.io/devps/"><code>devps</code></a><p>Manage local dev servers: see what started each one, jump back to it, or stop it.</p></li>
+            <li class="row"><a href="https://filipgutica.github.io/t3code/"><code>Workbench</code></a><p>Plan across repositories, organize tickets, and start agent threads in worktrees.</p></li>
+          </ul>
         </section>
       </main>
       <footer>
-        <a href="https://github.com/filipgutica">Built by Filip Gutica</a
-        ><a href="https://github.com/filipgutica/annoterm/issues"
-          >Report an issue</a
-        ><a href="https://github.com/filipgutica/annoterm/releases">Releases</a
-        ><a href="https://github.com/filipgutica/annoterm/blob/main/LICENSE"
-          >MIT license</a
-        >
+        <a href="https://github.com/filipgutica">Built by Filip Gutica</a>
+        <nav aria-label="Project links">
+          <a href="https://github.com/filipgutica/annoterm/issues">Report an issue</a>
+          <a href="https://github.com/filipgutica/annoterm/releases">Releases</a>
+          <a href="https://github.com/filipgutica/annoterm/blob/main/LICENSE">MIT license</a>
+        </nav>
       </footer>
     </div>
+    <p id="copy-status" class="visually-hidden" role="status"></p>
   </body>
 </html>
