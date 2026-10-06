@@ -79,6 +79,14 @@ onUnmounted(() => {
   <a class="skip" href="#main">Skip to content</a>
   <div class="page" :data-enhanced="enhanced">
     <SiteNavigation />
+    <header class="page-header">
+      <a class="page-brand" href="/annoterm/" aria-label="annoterm home">annoterm</a>
+      <nav aria-label="Main navigation">
+        <a href="https://github.com/filipgutica/annoterm/blob/main/README.md">Guide</a>
+        <a href="https://github.com/filipgutica/annoterm">GitHub</a>
+        <a href="https://github.com/filipgutica/annoterm/releases">Releases</a>
+      </nav>
+    </header>
     <main id="main" ref="main">
       <div>
         <section class="hero" aria-labelledby="title">
