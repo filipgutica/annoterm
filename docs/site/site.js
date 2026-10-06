@@ -196,6 +196,69 @@ document.querySelectorAll("[data-stage]").forEach((stage) => {
   select(0, false);
 });
 
+/* Fit each capture to its container; the native dialog keeps the original readable. */
+const captures = [...document.querySelectorAll(".frame .term-wrap")];
+if (captures.length && "ResizeObserver" in window && typeof HTMLDialogElement !== "undefined" && "showModal" in HTMLDialogElement.prototype) {
+  const viewer = document.createElement("dialog");
+  viewer.className = "capture-viewer";
+  viewer.setAttribute("aria-labelledby", "capture-viewer-title");
+  viewer.innerHTML = `<div class="capture-toolbar">
+    <h2 id="capture-viewer-title"></h2>
+    <button type="button" class="btn" autofocus>Close capture</button>
+  </div>
+  <div class="capture-content" tabindex="0" role="region"></div>
+  <p class="hint">Scroll to read the full capture.</p>`;
+  document.body.append(viewer);
+  const title = viewer.querySelector("h2");
+  const content = viewer.querySelector(".capture-content");
+  let trigger;
+  viewer.querySelector("button").addEventListener("click", () => viewer.close());
+  viewer.addEventListener("close", () => {
+    root.classList.remove("capture-open");
+    content.replaceChildren();
+    trigger?.focus({ preventScroll: true });
+  });
+  viewer.addEventListener("click", (event) => {
+    if (event.target !== viewer) return;
+    const { left, right, top, bottom } = viewer.getBoundingClientRect();
+    if (event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom) viewer.close();
+  });
+  const observer = new ResizeObserver((entries) => {
+    entries.forEach(({ target: wrap }) => {
+      const term = wrap.querySelector(".term");
+      if (!wrap.clientWidth || !term.offsetWidth) return;
+      const scale = Math.min(1, wrap.clientWidth / term.offsetWidth);
+      term.style.transform = `scale(${scale})`;
+      wrap.style.height = `${Math.ceil(term.offsetHeight * scale) + wrap.offsetHeight - wrap.clientHeight}px`;
+      wrap.dataset.preview = "";
+      wrap.removeAttribute("tabindex");
+    });
+  });
+  captures.forEach((wrap) => {
+    const frame = wrap.closest(".frame");
+    const term = wrap.querySelector(".term");
+    const label = frame.dataset.tab;
+    const expand = document.createElement("button");
+    expand.type = "button";
+    expand.className = "btn capture-expand";
+    expand.textContent = "Expand capture";
+    expand.setAttribute("aria-label", `Expand ${label} capture`);
+    expand.setAttribute("aria-haspopup", "dialog");
+    frame.querySelector(".frame-cap").append(expand);
+    expand.addEventListener("click", () => {
+      trigger = expand;
+      title.textContent = `${label} capture`;
+      content.setAttribute("aria-label", `${label} capture at full size`);
+      const fullCapture = term.cloneNode(true);
+      fullCapture.style.removeProperty("transform");
+      content.replaceChildren(fullCapture);
+      viewer.showModal();
+      root.classList.add("capture-open");
+    });
+    observer.observe(wrap);
+  });
+}
+
 /* Reveal offscreen documentation once. Above-the-fold content never starts hidden. */
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 if ("IntersectionObserver" in window && !reducedMotion.matches) {

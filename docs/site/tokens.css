@@ -176,9 +176,9 @@ a:hover { text-decoration: underline; }
 /* Shared landing-page scale for the tool sites. */
 :root {
   --page-max: 1152px;
-  --text-display: clamp(48px, 7vw, 88px);
-  --text-headline: var(--text-2xl);
-  --tracking-display: -0.06em;
+  --text-display: var(--text-2xl);
+  --text-headline: var(--text-xl);
+  --tracking-display: var(--tracking-tight);
 }
 
 /* Navigation and motion for the shared tool pages. */
