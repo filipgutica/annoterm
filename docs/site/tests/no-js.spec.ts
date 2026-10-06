@@ -10,7 +10,7 @@ for (const width of [320, 390, 768, 801, 1280]) {
     await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
     await expect(page.locator(".capture-open")).toHaveCount(0);
     await expect(
-      page.getByRole("heading", { name: "annoterm", exact: true }),
+      page.getByRole("heading", { name: "Read it. Mark it. Send it back.", level: 1 }),
     ).toBeVisible();
     await expect(page.locator("#install code")).toHaveText(
       "brew install filipgutica/tap/annoterm",

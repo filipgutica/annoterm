@@ -100,6 +100,13 @@ for (const width of [320, 390, 768, 801, 1280]) {
     await noOverflow(page);
     const header = page.locator(".page-header");
     await expect(header.getByRole("link", { name: "annoterm home" })).toBeVisible();
+    const heading = page.getByRole("heading", { level: 1 });
+    await expect(heading).toHaveText("Read it. Mark it. Send it back.");
+    const headerBox = await header.boundingBox();
+    const headingBox = await heading.boundingBox();
+    const introGap = (headingBox?.y ?? Infinity) - (headerBox?.y ?? 0) - (headerBox?.height ?? 0);
+    expect(introGap).toBeGreaterThanOrEqual(0);
+    expect(introGap).toBeLessThanOrEqual(width <= 640 ? 20 : 28);
     const mainNav = header.getByRole("navigation", { name: "Main navigation" });
     await expect(mainNav.getByRole("link", { name: "Guide", exact: true })).toHaveAttribute(
       "href", "https://github.com/filipgutica/annoterm/blob/main/README.md",

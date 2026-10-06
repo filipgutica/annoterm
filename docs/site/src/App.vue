@@ -90,8 +90,7 @@ onUnmounted(() => {
     <main id="main" ref="main">
       <div>
         <section class="hero" aria-labelledby="title">
-          <h1 id="title">annoterm</h1>
-          <p class="tagline">Read it. Mark it. Send it back.</p>
+          <h1 id="title" class="tagline">Read it. Mark it. Send it back.</h1>
           <p class="lede">
             Review Markdown in the terminal. Your comments become precise
             feedback for Codex, Claude Code, or another coding agent.
