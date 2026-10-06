@@ -103,6 +103,8 @@ if (sectionLinks.length) {
   window.addEventListener("resize", scheduleSection);
   window.addEventListener("pageshow", scheduleSection);
   const main = document.querySelector("main");
+  // Reveal transforms move headings without changing layout size.
+  main?.addEventListener("transitionend", scheduleSection);
   if (main && "ResizeObserver" in window) new ResizeObserver(scheduleSection).observe(main);
   updateSection();
 }
