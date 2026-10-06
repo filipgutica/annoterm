@@ -1,0 +1,31 @@
+<pre class="term" role="img" aria-label="annoterm showing a Markdown document with a paragraph selected and an empty Comments panel." data-cols="100">Rendered mode · Ctrl+R switches to raw mode
+┌Rendered · selected block: lines 7–7────────────────────────────────────────────┐┌Comments (0)────┐
+│  <span class="tbold tul">Retry policy</span>                                                                  ││No comments yet │
+│  ━━━━━━━━━━━━                                                                  ││                │
+│                                                                                ││                │
+│  Design notes for the sync worker.                                             ││                │
+│                                                                                ││                │
+│  <span class="tbold">Behavior</span>                                                                      ││                │
+│  ────────                                                                      ││                │
+│                                                                                ││                │
+│<span class="tf15 tb4 tbold">› Retries use a fixed five-second delay. The worker stops after three attempts.</span> ││                │
+│                                                                                ││                │
+│  ┌─────────┬─────────┬───────┐                                                 ││                │
+│  │ <span class="tbold">Error</span>   <span class="tf-dim">│</span> <span class="tf-dim tbold">Retried</span> <span class="tf-dim">│</span> <span class="tf-dim tbold">Delay</span> <span class="tf-dim">│</span>                                                 <span class="tf-dim">││</span>                <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  ├─────────┼─────────┼───────┤                                                 ││                │
+│  │ Timeout <span class="tf-dim">│</span> <span class="tf-dim">yes</span>     <span class="tf-dim">│</span> <span class="tf-dim">5s</span>    <span class="tf-dim">│</span>                                                 <span class="tf-dim">││</span>                <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  ├─────────┼─────────┼───────┤                                                 ││                │
+│  │ 4xx     <span class="tf-dim">│</span> <span class="tf-dim">no</span>      <span class="tf-dim">│</span> <span class="tf-dim">none</span>  <span class="tf-dim">│</span>                                                 <span class="tf-dim">││</span>                <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  ├─────────┼─────────┼───────┤                                                 ││                │
+│  │ 5xx     <span class="tf-dim">│</span> <span class="tf-dim">yes</span>     <span class="tf-dim">│</span> <span class="tf-dim">5s</span>    <span class="tf-dim">│</span>                                                 <span class="tf-dim">││</span>                <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  └─────────┴─────────┴───────┘                                                 ││                │
+│                                                                                ││                │
+│  <span class="tbold">Rollout</span>                                                                       ││                │
+│  ───────                                                                       ││                │
+│                                                                                ││                │
+│  [x] Add the retry wrapper                                                     ││                │
+│  [ ] Emit a metric for each attempt                                            ││                │
+│                                                                                ││                │
+│                                                                                ││                │
+└────────────────────────────────────────────────────────────────────────────────┘└────────────────┘
+<span class="tf-bg tb-fg"><i>↑</i>/<i>↓</i>/wheel Blocks · a Comment · / Search · Ctrl+R Raw · ? Help                                       </span></pre>
