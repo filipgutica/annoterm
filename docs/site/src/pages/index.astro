@@ -1,0 +1,45 @@
+---
+import App from '../App.vue';
+import libraryThemeCss from '@filipgutica/ui/theme.css?raw';
+import '../styles/site.css';
+
+// Reuse the library's dark palette for readers who never execute the theme boot script.
+const darkTokens = libraryThemeCss.match(/:root\.dark\s*\{([^}]+)\}/)?.[1];
+if (!darkTokens) throw new Error('The UI library dark theme tokens are missing.');
+const noScriptDarkCss = `@media (prefers-color-scheme: dark) { :root:not(.dark) { ${darkTokens} } }`;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>annoterm: review Markdown in the terminal</title>
+    <meta name="description" content="Review Markdown in the terminal. Comments become precise feedback for Codex, Claude Code, or another coding agent." />
+    <meta property="og:title" content="annoterm" />
+    <meta property="og:description" content="Review Markdown in the terminal. Comments become precise feedback for Codex, Claude Code, or another coding agent." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://filipgutica.github.io/annoterm/" />
+    <link rel="canonical" href="https://filipgutica.github.io/annoterm/" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233d63dd'/%3E%3Ctext x='16' y='23' font-family='ui-monospace,Menlo,monospace' font-size='20' font-weight='700' text-anchor='middle' fill='white'%3Ea%3C/text%3E%3C/svg%3E"
+    />
+
+    <script is:inline>
+      let choice = 'system';
+      try {
+        choice = localStorage.getItem('tool-site-theme') || 'system';
+      } catch {}
+      const dark =
+        choice === 'dark' ||
+        (choice !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.classList.toggle('dark', dark);
+      if (choice === 'light' || choice === 'dark') document.documentElement.dataset.theme = choice;
+    </script>
+    <noscript><style is:global set:html={noScriptDarkCss}></style></noscript>
+  </head>
+  <body>
+    <App client:load />
+  </body>
+</html>

@@ -1,0 +1,31 @@
+<pre class="term" role="img" aria-label="annoterm with one open comment on the selected paragraph, listed in the Comments panel." data-cols="100">Comment added
+┌Rendered · selected block: lines 7–7──────────────────────────────────┐┌Comments (1)──────────────┐
+│  <span class="tbold tul">Retry policy</span>                                                        ││<span class="tf15 tb4 tbold">› 1/1 · Open (in feedback)</span>│
+│  ━━━━━━━━━━━━                                                        ││<span class="tf15 tb4 tbold">  Explain why this uses a</span> │
+│                                                                      ││<span class="tf15 tb4 tbold">fixed delay instead of</span>    │
+│  Design notes for the sync worker.                                   ││<span class="tf15 tb4 tbold">exponential backoff.</span>      │
+│                                                                      ││                          │
+│  <span class="tbold">Behavior</span>                                                            ││                          │
+│  ────────                                                            ││                          │
+│                                                                      ││                          │
+│<span class="tf15 tb4 tbold"><i>●</i> Retries use a fixed five-second delay. The worker stops after three</span> ││                          │
+│<span class="tf15 tb4 tbold">attempts.</span>                                                             ││                          │
+│                                                                      ││                          │
+│  <span class="tf-dim">┌─────────┬─────────┬───────┐</span>                                       <span class="tf-dim">││</span>                          <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  <span class="tf-dim">│</span> <span class="tf-dim tbold">Error</span>   <span class="tf-dim">│</span> <span class="tf-dim tbold">Retried</span> <span class="tf-dim">│</span> <span class="tf-dim tbold">Delay</span> <span class="tf-dim">│</span>                                       <span class="tf-dim">││</span>                          │
+│  <span class="tf-dim">├─────────┼─────────┼───────┤</span>                                       <span class="tf-dim">││</span>                          <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  <span class="tf-dim">│</span> <span class="tf-dim">Timeout</span> <span class="tf-dim">│</span> <span class="tf-dim">yes</span>     <span class="tf-dim">│</span> <span class="tf-dim">5s</span>    <span class="tf-dim">│</span>                                       <span class="tf-dim">││</span>                          │
+│  <span class="tf-dim">├─────────┼─────────┼───────┤</span>                                       <span class="tf-dim">││</span>                          <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  <span class="tf-dim">│</span> <span class="tf-dim">4xx</span>     <span class="tf-dim">│</span> <span class="tf-dim">no</span>      <span class="tf-dim">│</span> <span class="tf-dim">none</span>  <span class="tf-dim">│</span>                                       <span class="tf-dim">││</span>                          │
+│  <span class="tf-dim">├─────────┼─────────┼───────┤</span>                                       <span class="tf-dim">││</span>                          <span class="tf-dim">│</span>
+<span class="tf-dim">│</span>  <span class="tf-dim">│</span> <span class="tf-dim">5xx</span>     <span class="tf-dim">│</span> <span class="tf-dim">yes</span>     <span class="tf-dim">│</span> <span class="tf-dim">5s</span>    <span class="tf-dim">│</span>                                       <span class="tf-dim">││</span>                          │
+│  └─────────┴─────────┴───────┘                                       ││                          │
+│                                                                      ││                          │
+│  <span class="tbold">Rollout</span>                                                             ││                          │
+│  ───────                                                             ││                          │
+│                                                                      ││                          │
+│  [x] Add the retry wrapper                                           ││                          │
+│  [ ] Emit a metric for each attempt                                  ││                          │
+│                                                                      ││                          │
+└──────────────────────────────────────────────────────────────────────┘└──────────────────────────┘
+<span class="tf-bg tb-fg"><i>↑</i>/<i>↓</i> Blocks · a Comment · [/] Comments · j Jump · e Edit · x Resolve · ? Help                        </span></pre>

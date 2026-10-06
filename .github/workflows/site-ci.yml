@@ -1,0 +1,45 @@
+name: Site CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["docs/site/**", ".github/workflows/pages.yml", ".github/workflows/site-ci.yml"]
+  push:
+    branches: [main]
+    paths: ["docs/site/**", ".github/workflows/pages.yml", ".github/workflows/site-ci.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  site:
+    name: Site checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs/site
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/site/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: site-browser-failure
+          path: |
+            docs/site/playwright-report/
+            docs/site/test-results/
+          retention-days: 7
