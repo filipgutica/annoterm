@@ -180,6 +180,7 @@ onUnmounted(() => {
           <li class="row">
             <div class="cmd">
               <UiCodeBlock
+                variant="compact"
                 code="annoterm README.md"
                 language="bash"
                 :copyable="enhanced"
@@ -191,6 +192,7 @@ onUnmounted(() => {
           <li class="row">
             <div class="cmd">
               <UiCodeBlock
+                variant="compact"
                 code="annoterm copy-feedback README.md"
                 language="bash"
                 :copyable="enhanced"
@@ -204,6 +206,7 @@ onUnmounted(() => {
           <li class="row">
             <div class="cmd">
               <UiCodeBlock
+                variant="compact"
                 code="annoterm export README.md --output feedback.md"
                 language="bash"
                 :copyable="enhanced"

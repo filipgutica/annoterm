@@ -98,6 +98,28 @@ for (const width of [320, 390, 768, 801, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await load(page);
     await noOverflow(page);
+    const command = page.locator('.cmd .fg-code-block').first();
+    const copy = command.getByRole('button', { name: 'Copy code' });
+    const blockBox = await command.boundingBox();
+    const codeBox = await command.locator('pre').boundingBox();
+    const copyBox = await copy.boundingBox();
+    expect(blockBox?.height ?? Infinity).toBeLessThanOrEqual(60);
+    expect(copyBox?.width ?? 0).toBeGreaterThanOrEqual(44);
+    expect(copyBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(
+      Math.abs(
+        (codeBox?.y ?? 0) + (codeBox?.height ?? 0) / 2 -
+          ((copyBox?.y ?? 0) + (copyBox?.height ?? 0) / 2),
+      ),
+    ).toBeLessThan(2);
+    for (const block of await page.locator('.cmd .fg-code-block').all()) {
+      const preBox = await block.locator('pre').boundingBox();
+      const buttonBox = await block.getByRole('button', { name: 'Copy code' }).boundingBox();
+      expect((preBox?.x ?? 0) + (preBox?.width ?? 0)).toBeLessThanOrEqual((buttonBox?.x ?? 0) + 1);
+      expect(
+        await block.locator('pre').evaluate((element) => element.scrollWidth <= element.clientWidth),
+      ).toBe(true);
+    }
     const frame = page.locator("#frame-read");
     await expect
       .poll(() =>
@@ -369,6 +391,11 @@ test("library code copying and syntax tokens work", async ({
   await expect
     .poll(() => install.locator(".fg-code-block__text > span[style]").count())
     .toBeGreaterThan(0);
+  const command = page.locator('.cmd .fg-code-block').first();
+  const commandText = await command.locator('code').textContent();
+  await command.getByRole('button', { name: 'Copy code' }).click();
+  await expect(command.getByRole('status')).toHaveText('Code copied to clipboard.');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(commandText);
 });
 
 test("clipboard failure remains recoverable with readable code", async ({
