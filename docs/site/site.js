@@ -76,6 +76,39 @@ if (siteMenu && menuToggle && menuContent && menuDrawer) {
   });
 }
 
+/* Track the section at the top of the reading area without changing normal anchor navigation. */
+const sectionLinks = [...document.querySelectorAll('.section-nav a[href^="#"]')]
+  .map((link) => ({ link, target: document.getElementById(link.hash.slice(1)) }))
+  .filter(({ target }) => target);
+if (sectionLinks.length) {
+  let current;
+  let pending = 0;
+  const updateSection = () => {
+    pending = 0;
+    const offset = parseFloat(getComputedStyle(root).scrollPaddingTop) || 0;
+    let active = sectionLinks[0];
+    sectionLinks.forEach((section) => {
+      if (section.target.getBoundingClientRect().top <= offset + 1) active = section;
+    });
+    if (scrollY > 0 && Math.ceil(scrollY + innerHeight) >= root.scrollHeight) active = sectionLinks.at(-1);
+    if (active === current) return;
+    current?.link.removeAttribute("aria-current");
+    active.link.setAttribute("aria-current", "location");
+    current = active;
+  };
+  const scheduleSection = () => {
+    if (!pending) pending = requestAnimationFrame(updateSection);
+  };
+  window.addEventListener("scroll", scheduleSection, { passive: true });
+  window.addEventListener("resize", scheduleSection);
+  window.addEventListener("pageshow", scheduleSection);
+  const main = document.querySelector("main");
+  // Reveal transforms move headings without changing layout size.
+  main?.addEventListener("transitionend", scheduleSection);
+  if (main && "ResizeObserver" in window) new ResizeObserver(scheduleSection).observe(main);
+  updateSection();
+}
+
 /* Theme: System follows the OS. The choice is remembered when storage works. */
 const themeButtons = document.querySelectorAll("[data-theme-choice]");
 const switcher = document.querySelector(".theme-switch");
