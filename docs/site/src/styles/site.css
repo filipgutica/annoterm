@@ -1,6 +1,7 @@
 @import 'tailwindcss/utilities.css' source(none);
 @import '@filipgutica/ui/theme.css';
 @import '@filipgutica/ui/components.css';
+@import './palette.css';
 
 /* Layout and terminal artifacts belong to this site; controls use the library styles. */
 :root {
@@ -25,8 +26,10 @@
   --t15: #ffffff;
 }
 :root {
-  --site-nav-width: 10rem;
-  --site-page-max: 72rem;
+  --site-nav-width: 11rem;
+  --site-page-max: 64rem;
+  --site-heading-size: 28px;
+  --site-heading-tracking: -0.025em;
 }
 *,
 *::before,
@@ -173,6 +176,7 @@ section {
   display: inline-flex;
   align-items: center;
   min-height: var(--control-lg);
+  min-width: var(--control-lg);
 }
 .page-header nav a {
   color: var(--color-muted);
@@ -301,9 +305,10 @@ summary.menu-toggle {
   padding-top: var(--space-6);
 }
 .tagline {
-  max-width: 28ch;
+  max-width: 30ch;
   font-family: var(--font-ui);
-  font-size: var(--text-xl);
+  font-size: var(--site-heading-size);
+  letter-spacing: var(--site-heading-tracking);
   font-weight: var(--weight-semibold);
   line-height: var(--leading-tight);
   text-wrap: balance;
@@ -314,9 +319,11 @@ summary.menu-toggle {
   max-width: 56ch;
 }
 .install-command {
+  display: grid;
+  gap: var(--space-2);
   width: 100%;
   max-width: var(--measure);
-  margin-top: var(--space-3);
+  margin-top: var(--space-2);
 }
 .facts {
   display: flex;
@@ -585,16 +592,40 @@ footer a {
 }
 @media (max-width: 800px) {
   .page {
-    display: block;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-3);
+  }
+  .page-header {
+    grid-column: 1;
+    grid-row: 1;
+    gap: 0 var(--space-4);
+  }
+  .page-header nav {
+    gap: var(--space-4);
+  }
+  main,
+  footer {
+    grid-column: 1 / -1;
   }
   .site-header {
+    grid-column: 2;
+    grid-row: 1;
     position: static;
+    align-self: stretch;
+    justify-content: center;
     min-height: 0;
     max-height: none;
     overflow: visible;
     padding: var(--space-2) 0;
     border-right: 0;
     border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .site-header:has(.site-menu[open]) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .site-header > .site-menu {
+    flex: 0 1 auto;
   }
   summary.menu-toggle {
     display: flex;
@@ -769,4 +800,10 @@ footer a {
 .tul {
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+/* Neutral prose links remain identifiable without relying on color. */
+main p a {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }

@@ -1,0 +1,77 @@
+/* Public-page branding uses the library's semantic roles.
+ * Imported themes can still override these values through root inline styles. */
+:root {
+  --color-bg: #f4f5f8;
+  --color-surface: #ebecef;
+  --color-surface-raised: #ffffff;
+  --color-surface-muted: #e4e6eb;
+  --color-text: #222326;
+  --color-muted: #5d626c;
+  --color-link: #075fc7;
+  --color-accent: #222326;
+  --color-focus: #075fc7;
+  --color-border: #777d88;
+  --color-border-subtle: #d8dbe2;
+  --color-button-bg: #1f883d;
+  --color-button-text: #ffffff;
+  --color-button-hover: #1a7f37;
+  --color-input-bg: #ffffff;
+  --color-input-text: #222326;
+  --color-input-border: #777d88;
+  --color-input-placeholder: #5d626c;
+  --color-row-hover: #e4e6eb;
+  --color-row-selected: #dde0e6;
+  --color-row-selected-text: #222326;
+  --color-code: #ebecef;
+  --color-code-text: #222326;
+  --color-syntax-comment: #5d626c;
+  --color-syntax-keyword: #715b42;
+  --color-syntax-string: #346347;
+  --color-syntax-number: #86532e;
+  --color-syntax-function: #715b42;
+  --color-syntax-type: #86532e;
+  --color-syntax-variable: #222326;
+  --color-syntax-operator: #5d626c;
+  --color-syntax-punctuation: #5d626c;
+  --color-syntax-tag: #715b42;
+  --color-syntax-attribute: #86532e;
+  --color-progress: #1f883d;
+}
+
+:root.dark {
+  --color-bg: #1b1c1f;
+  --color-surface: #222326;
+  --color-surface-raised: #2a2b2f;
+  --color-surface-muted: #303238;
+  --color-text: #f4f5f8;
+  --color-muted: #b0b5bf;
+  --color-link: #58a6ff;
+  --color-accent: #f4f5f8;
+  --color-focus: #58a6ff;
+  --color-border: #818894;
+  --color-border-subtle: #3b3e45;
+  --color-button-bg: #1f883d;
+  --color-button-text: #ffffff;
+  --color-button-hover: #1a7f37;
+  --color-input-bg: #222326;
+  --color-input-text: #f4f5f8;
+  --color-input-border: #818894;
+  --color-input-placeholder: #b0b5bf;
+  --color-row-hover: #303238;
+  --color-row-selected: #34373e;
+  --color-row-selected-text: #f4f5f8;
+  --color-code: #222326;
+  --color-code-text: #f4f5f8;
+  --color-syntax-comment: #b0b5bf;
+  --color-syntax-keyword: #d8c2a5;
+  --color-syntax-string: #a8bd9c;
+  --color-syntax-number: #d5b98c;
+  --color-syntax-function: #d8c2a5;
+  --color-syntax-type: #d5b98c;
+  --color-syntax-variable: #f4f5f8;
+  --color-syntax-operator: #b0b5bf;
+  --color-syntax-punctuation: #b0b5bf;
+  --color-syntax-tag: #d8c2a5;
+  --color-syntax-attribute: #d5b98c;
+  --color-progress: #1f883d;
+}

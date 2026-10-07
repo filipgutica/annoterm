@@ -66,6 +66,18 @@ const expectAtBottom = async (page: Page) => {
     )
     .toBeLessThan(2);
 };
+const expectAnchorBeforeBottom = async (page: Page, id: string) => {
+  await expect
+    .poll(() =>
+      page.locator(`#${id}`).evaluate((element) => {
+        const root = document.documentElement;
+        const inset = parseFloat(getComputedStyle(root).scrollPaddingTop) || 0;
+        const anchorScroll = element.getBoundingClientRect().top + scrollY - inset;
+        return root.scrollHeight - innerHeight - anchorScroll;
+      }),
+    )
+    .toBeGreaterThan(2);
+};
 const traverseHistory = async ({
   page,
   delta,
@@ -176,8 +188,10 @@ for (const width of [320, 390, 768, 801, 1280]) {
 test("native anchor navigation, history, and scroll selection stay independent", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
+  // Keep Keys clear of the scroll limit; the bottom-of-page rule is checked separately.
+  await page.setViewportSize({ width: 1280, height: 720 });
   await load(page);
+  await expectAnchorBeforeBottom(page, "keys-title");
   const sectionNav = page.getByRole("navigation", { name: "On this page" });
   await sectionNav.getByRole("link", { name: "Commands", exact: true }).click();
   await expect(page).toHaveURL(/#commands-title$/);
@@ -225,8 +239,9 @@ test("native anchor navigation, history, and scroll selection stay independent",
 test("initial deep links settle after all-capture SSR becomes tabs", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.setViewportSize({ width: 1280, height: 720 });
   await load(page, "#keys-title");
+  await expectAnchorBeforeBottom(page, "keys-title");
   await expectAtNativeAnchor(page, "keys-title");
   await expect(
     page

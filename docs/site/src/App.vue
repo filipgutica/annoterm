@@ -92,21 +92,21 @@ onUnmounted(() => {
         <section class="hero" aria-labelledby="title">
           <h1 id="title" class="tagline">Read it. Mark it. Send it back.</h1>
           <p class="lede">
-            Review Markdown in the terminal. Your comments become precise
-            feedback for Codex, Claude Code, or another coding agent.
+            Review Markdown in the terminal and send comments to your coding agent.
           </p>
           <div id="install" class="install-command">
+            <p class="hint">Install with Homebrew</p>
             <UiCodeBlock
               code="brew install filipgutica/tap/annoterm"
               language="bash"
-              title="Install with Homebrew"
+              variant="compact"
               :copyable="enhanced"
               :wrap="true"
             />
           </div>
           <p class="hint">
-            Homebrew builds annoterm from source and installs Rust to do it. New
-            to Homebrew? <a href="https://brew.sh/">Install it first</a>.
+            Homebrew builds from source and installs Rust.
+            <a href="https://brew.sh/">Install Homebrew</a> if needed.
           </p>
           <dl class="facts">
             <div>
@@ -133,7 +133,7 @@ onUnmounted(() => {
         </section>
         <section class="stage" aria-label="annoterm in use">
           <p class="stage-label">
-            Demo document. Captured from annoterm 0.2.0.
+            Demo document in annoterm 0.2.0.
           </p>
           <UiTabs v-model="activeCapture" :items="captureTabs" label="Steps">
             <template #panel="{ value }">
@@ -152,24 +152,23 @@ onUnmounted(() => {
             <dl style="--cols: 4">
               <div>
                 <dt>●</dt>
-                <dd>A comment is anchored to this block.</dd>
+                <dd>Comment anchored to this block.</dd>
               </div>
               <div>
                 <dt>◌</dt>
                 <dd>
-                  The comment is outdated and shown at an approximate spot.
+                  Outdated comment at an approximate location.
                 </dd>
               </div>
               <div>
                 <dt>Open</dt>
                 <dd>
-                  Open comments go into the feedback. Resolved ones stay in the
-                  sidecar and are left out.
+                  Open comments enter feedback; resolved comments stay only in the sidecar.
                 </dd>
               </div>
               <div>
                 <dt>Bottom bar</dt>
-                <dd>Shortcuts for the pane you are in.</dd>
+                <dd>Active pane's shortcuts.</dd>
               </div>
             </dl>
           </aside>
@@ -179,8 +178,7 @@ onUnmounted(() => {
         <header>
           <h2 id="commands-title">Commands</h2>
           <p>
-            annoterm copies feedback after each comment change, and again when
-            you quit with open comments.
+            Feedback is copied after each comment change and on quit with open comments.
           </p>
         </header>
         <ul class="rows">
@@ -194,7 +192,7 @@ onUnmounted(() => {
                 :wrap="true"
               />
             </div>
-            <p>Open a Markdown file in rendered mode.</p>
+            <p>Open rendered Markdown.</p>
           </li>
           <li class="row">
             <div class="cmd">
@@ -207,7 +205,7 @@ onUnmounted(() => {
               />
             </div>
             <p>
-              Copy the feedback again if another app replaced your clipboard.
+              Copy feedback again if your clipboard was replaced.
             </p>
           </li>
           <li class="row">
@@ -221,8 +219,7 @@ onUnmounted(() => {
               />
             </div>
             <p>
-              Write the feedback to a file. Add <code>--force</code> to replace
-              an existing file.
+              Export feedback; <code>--force</code> replaces an existing file.
             </p>
           </li>
         </ul>
@@ -230,7 +227,7 @@ onUnmounted(() => {
       <section class="split narrow" aria-labelledby="keys-title">
         <header>
           <h2 id="keys-title">Keys</h2>
-          <p>Press <kbd>?</kbd> in the app for the full list.</p>
+          <p><kbd>?</kbd> shows all shortcuts in rendered mode or the Comments panel.</p>
         </header>
         <ul class="rows">
           <li class="row">
@@ -239,19 +236,19 @@ onUnmounted(() => {
           </li>
           <li class="row">
             <kbd>Ctrl+R</kbd>
-            <p>Switch between rendered Markdown and raw source.</p>
+            <p>Toggle rendered and raw modes.</p>
           </li>
           <li class="row">
             <kbd>Ctrl+K</kbd>
-            <p>Comment on a raw selection or a rendered block.</p>
+            <p>Comment on a raw selection or rendered block.</p>
           </li>
           <li class="row">
             <kbd>Ctrl+S</kbd>
-            <p>Save changes in raw mode.</p>
+            <p>Save raw changes.</p>
           </li>
           <li class="row">
             <kbd>q</kbd>
-            <p>Quit from rendered mode and copy open comments.</p>
+            <p>Quit rendered mode; copy open comments.</p>
           </li>
         </ul>
       </section>
@@ -261,18 +258,15 @@ onUnmounted(() => {
         </header>
         <div class="text-rows">
           <p>
-            <strong>Comments stay outside your document.</strong> annoterm
-            stores them in a JSON sidecar under <code>~/.annoterm</code> and
-            re-anchors them when the source moves.
+            <strong>Comments:</strong> JSON sidecars under <code>~/.annoterm</code>,
+            separate from your document. Anchors follow source changes.
           </p>
           <p>
-            <strong>Saves stop if another process changed the file.</strong>
-            There is no merge view.
+            <strong>External file changes stop saves.</strong> No merge view.
           </p>
           <p>
-            <strong>On Linux, copying can need a helper.</strong> Install
-            <code>wl-copy</code> for Wayland or <code>xclip</code> for X11.
-            annoterm falls back to OSC 52.
+            <strong>Linux clipboard:</strong> copying may need <code>wl-copy</code> for Wayland
+            or <code>xclip</code> for X11. OSC 52 is the fallback.
           </p>
           <nav class="links" aria-label="Documentation">
             <a href="https://github.com/filipgutica/annoterm#readme"
@@ -293,10 +287,9 @@ onUnmounted(() => {
         <header>
           <h2 id="family-title">Also from Filip</h2>
           <p>
-            The three terminal tools install from
             <a href="https://github.com/filipgutica/homebrew-tap"
-              >one Homebrew tap</a
-            >.
+              >Homebrew tap</a
+            >
           </p>
         </header>
         <ul class="rows narrow">
@@ -305,8 +298,7 @@ onUnmounted(() => {
               ><code>wtree</code></a
             >
             <p>
-              List Git worktrees with age and pull request state, then clean up
-              the finished ones.
+              Git worktree status and cleanup.
             </p>
           </li>
           <li class="row">
@@ -314,8 +306,7 @@ onUnmounted(() => {
               ><code>devps</code></a
             >
             <p>
-              Manage local dev servers: see what started each one, jump back to
-              it, or stop it.
+              Local dev server management.
             </p>
           </li>
           <li class="row">
@@ -323,8 +314,7 @@ onUnmounted(() => {
               ><code>Workbench</code></a
             >
             <p>
-              Plan across repositories, organize tickets, and start agent
-              threads in worktrees.
+              Tickets and agent threads across repositories.
             </p>
           </li>
         </ul>

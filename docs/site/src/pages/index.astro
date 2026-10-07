@@ -1,11 +1,15 @@
 ---
 import App from '../App.vue';
 import libraryThemeCss from '@filipgutica/ui/theme.css?raw';
+import sitePaletteCss from '../styles/palette.css?raw';
 import '../styles/site.css';
 
-// Reuse the library's dark palette for readers who never execute the theme boot script.
-const darkTokens = libraryThemeCss.match(/:root\.dark\s*\{([^}]+)\}/)?.[1];
-if (!darkTokens) throw new Error('The UI library dark theme tokens are missing.');
+// Keep the library roles and page branding consistent without the theme boot script.
+const darkTokens = [libraryThemeCss, sitePaletteCss].map((css) => {
+  const tokens = css.match(/:root\.dark\s*\{([^}]+)\}/)?.[1];
+  if (!tokens) throw new Error('The dark theme tokens are missing.');
+  return tokens;
+}).join('\n');
 const noScriptDarkCss = `@media (prefers-color-scheme: dark) { :root:not(.dark) { ${darkTokens} } }`;
 ---
 <!doctype html>
@@ -23,7 +27,7 @@ const noScriptDarkCss = `@media (prefers-color-scheme: dark) { :root:not(.dark) 
     <link rel="canonical" href="https://filipgutica.github.io/annoterm/" />
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233d63dd'/%3E%3Ctext x='16' y='23' font-family='ui-monospace,Menlo,monospace' font-size='20' font-weight='700' text-anchor='middle' fill='white'%3Ea%3C/text%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23222326'/%3E%3Ctext x='16' y='23' font-family='ui-monospace,Menlo,monospace' font-size='20' font-weight='700' text-anchor='middle' fill='white'%3Ea%3C/text%3E%3C/svg%3E"
     />
 
     <script is:inline>
