@@ -1,6 +1,7 @@
 @import 'tailwindcss/utilities.css' source(none);
 @import '@filipgutica/ui/theme.css';
 @import '@filipgutica/ui/components.css';
+@import './palette.css';
 
 /* Layout and terminal artifacts belong to this site; controls use the library styles. */
 :root {
@@ -799,4 +800,10 @@ footer a {
 .tul {
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+/* Neutral prose links remain identifiable without relying on color. */
+main p a {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
