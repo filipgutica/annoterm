@@ -96,10 +96,11 @@ onUnmounted(() => {
             feedback for Codex, Claude Code, or another coding agent.
           </p>
           <div id="install" class="install-command">
+            <p class="hint">Install with Homebrew</p>
             <UiCodeBlock
               code="brew install filipgutica/tap/annoterm"
               language="bash"
-              title="Install with Homebrew"
+              variant="compact"
               :copyable="enhanced"
               :wrap="true"
             />
