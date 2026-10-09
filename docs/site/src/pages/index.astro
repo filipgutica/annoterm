@@ -1,7 +1,8 @@
 ---
 import App from '../App.vue';
 import libraryThemeCss from '@filipgutica/ui/theme.css?raw';
-import sitePaletteCss from '../styles/palette.css?raw';
+import sitePaletteCss from '@filipgutica/ui/themes/graphite-indigo.css?raw';
+import { siteThemeBootScript } from '@filipgutica/ui/site';
 import '../styles/site.css';
 
 // Keep the library roles and page branding consistent without the theme boot script.
@@ -30,17 +31,7 @@ const noScriptDarkCss = `@media (prefers-color-scheme: dark) { :root:not(.dark) 
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23222326'/%3E%3Ctext x='16' y='23' font-family='ui-monospace,Menlo,monospace' font-size='20' font-weight='700' text-anchor='middle' fill='white'%3Ea%3C/text%3E%3C/svg%3E"
     />
 
-    <script is:inline>
-      let choice = 'system';
-      try {
-        choice = localStorage.getItem('tool-site-theme') || 'system';
-      } catch {}
-      const dark =
-        choice === 'dark' ||
-        (choice !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
-      document.documentElement.classList.toggle('dark', dark);
-      if (choice === 'light' || choice === 'dark') document.documentElement.dataset.theme = choice;
-    </script>
+    <script is:inline set:html={siteThemeBootScript}></script>
     <noscript><style is:global set:html={noScriptDarkCss}></style></noscript>
   </head>
   <body>

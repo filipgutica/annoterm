@@ -40,6 +40,38 @@ const noOverflow = async (page: Page) => {
     ),
   ).toBe(true);
 };
+const projectTrigger = (page: Page) =>
+  page.getByLabel("Project: annoterm", { exact: true });
+const projectMenu = (page: Page) =>
+  page.getByRole("navigation", { name: "Projects" });
+const projects = [
+  ["annoterm", "https://filipgutica.github.io/annoterm/"],
+  ["wtree", "https://filipgutica.github.io/wtree/"],
+  ["devps", "https://filipgutica.github.io/devps/"],
+  ["Workbench", "https://filipgutica.github.io/t3code/"],
+  ["UI", "https://filipgutica.github.io/ui/"],
+] as const;
+// The shared header lists the family only while its menu is open. Closing it
+// afterwards keeps the dropdown from covering the local Menu on narrow screens.
+const checkProjectMenu = async (page: Page) => {
+  const menu = projectMenu(page);
+  await expect(menu).toBeHidden();
+  await projectTrigger(page).click();
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("link")).toHaveCount(projects.length);
+  for (const [label, href] of projects)
+    await expect(
+      menu.getByRole("link", { name: label, exact: true }),
+    ).toHaveAttribute("href", href);
+  await expect(menu.locator('[aria-current="page"]')).toHaveText("annoterm");
+  const box = await menu.boundingBox();
+  expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
+  expect((box?.x ?? 0) + (box?.width ?? Infinity)).toBeLessThanOrEqual(
+    await page.evaluate(() => innerWidth),
+  );
+  await projectTrigger(page).click();
+  await expect(menu).toBeHidden();
+};
 const expectAtNativeAnchor = async (page: Page, id: string) => {
   await expect
     .poll(() =>
@@ -111,24 +143,30 @@ for (const width of [320, 390, 768, 801, 1280]) {
     await load(page);
     await noOverflow(page);
     const header = page.locator(".page-header");
-    await expect(header.getByRole("link", { name: "annoterm home" })).toBeVisible();
+    await expect(projectTrigger(page)).toBeVisible();
     const heading = page.getByRole("heading", { level: 1 });
     await expect(heading).toHaveText("Read it. Mark it. Send it back.");
-    const headerBox = await header.boundingBox();
+    // The local Menu sits below the shared header at <=800px, and the section
+    // rail sits beside the intro on desktop.
+    const introAnchor = page.locator(width <= 800 ? ".site-header" : ".page-header");
+    const anchorBox = await introAnchor.boundingBox();
     const headingBox = await heading.boundingBox();
-    const introGap = (headingBox?.y ?? Infinity) - (headerBox?.y ?? 0) - (headerBox?.height ?? 0);
+    const introGap = (headingBox?.y ?? Infinity) - (anchorBox?.y ?? 0) - (anchorBox?.height ?? 0);
     expect(introGap).toBeGreaterThanOrEqual(0);
     expect(introGap).toBeLessThanOrEqual(width <= 640 ? 20 : 28);
-    const mainNav = header.getByRole("navigation", { name: "Main navigation" });
-    await expect(mainNav.getByRole("link", { name: "Guide", exact: true })).toHaveAttribute(
+    const siteLinks = header.getByRole("navigation", { name: "Site links" });
+    await expect(siteLinks.getByRole("link", { name: "Guide", exact: true })).toHaveAttribute(
       "href", "https://github.com/filipgutica/annoterm/blob/main/README.md",
     );
-    await expect(mainNav.getByRole("link", { name: "GitHub", exact: true })).toHaveAttribute(
+    await expect(siteLinks.getByRole("link", { name: "GitHub", exact: true })).toHaveAttribute(
       "href", "https://github.com/filipgutica/annoterm",
     );
-    await expect(mainNav.getByRole("link", { name: "Releases", exact: true })).toHaveAttribute(
+    await expect(siteLinks.getByRole("link", { name: "Releases", exact: true })).toHaveAttribute(
       "href", "https://github.com/filipgutica/annoterm/releases",
     );
+    await expect(
+      header.getByRole('button', { name: 'System theme', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
     const command = page.locator('.cmd .fg-code-block').first();
     const copy = command.getByRole('button', { name: 'Copy code' });
     const blockBox = await command.boundingBox();
@@ -167,20 +205,12 @@ for (const width of [320, 390, 768, 801, 1280]) {
     await expect(frame.locator(".term")).toContainText(
       "Retries use a fixed five-second delay.",
     );
+    await checkProjectMenu(page);
     if (width <= 800)
       await page.getByRole("button", { name: "Menu", exact: true }).click();
     await expect(
-      page.getByRole("navigation", { name: "Projects" }),
-    ).toBeVisible();
-    await expect(
       page.getByRole("navigation", { name: "On this page" }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: "annoterm", exact: true }).first(),
-    ).toHaveAttribute("aria-current", "page");
-    await expect(
-      page.getByRole("link", { name: "Vue UI", exact: true }),
-    ).toHaveAttribute("href", "https://filipgutica.github.io/ui/");
     await noOverflow(page);
   });
 }
@@ -189,7 +219,7 @@ test("native anchor navigation, history, and scroll selection stay independent",
   page,
 }) => {
   // Keep Keys clear of the scroll limit; the bottom-of-page rule is checked separately.
-  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.setViewportSize({ width: 1280, height: 640 });
   await load(page);
   await expectAnchorBeforeBottom(page, "keys-title");
   const sectionNav = page.getByRole("navigation", { name: "On this page" });
@@ -239,7 +269,7 @@ test("native anchor navigation, history, and scroll selection stay independent",
 test("initial deep links settle after all-capture SSR becomes tabs", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.setViewportSize({ width: 1280, height: 640 });
   await load(page, "#keys-title");
   await expectAnchorBeforeBottom(page, "keys-title");
   await expectAtNativeAnchor(page, "keys-title");
@@ -369,7 +399,7 @@ test("drawer focus, dismissal, anchor destination, and desktop breakpoint", asyn
   await page.setViewportSize({ width: 801, height: 900 });
   await expect(drawer).not.toBeVisible();
   await expect(
-    page.getByRole("navigation", { name: "Projects" }),
+    page.getByRole("navigation", { name: "On this page" }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Menu", exact: true }),
@@ -385,13 +415,12 @@ test("navigation focus survives both breakpoints without stealing content focus"
   await page.setViewportSize({ width: 390, height: 844 });
   await load(page);
   const trigger = page.getByRole("button", { name: "Menu", exact: true });
+  const firstSectionLink = page
+    .getByRole("navigation", { name: "On this page" })
+    .getByRole("link", { name: "Install", exact: true });
   await trigger.focus();
   await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(
-    page
-      .getByRole("navigation", { name: "Projects" })
-      .getByRole("link", { name: "annoterm", exact: true }),
-  ).toBeFocused();
+  await expect(firstSectionLink).toBeFocused();
   await page
     .getByRole("navigation", { name: "On this page" })
     .getByRole("link", { name: "Commands", exact: true })
@@ -403,11 +432,7 @@ test("navigation focus survives both breakpoints without stealing content focus"
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
   await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(
-    page
-      .getByRole("navigation", { name: "Projects" })
-      .getByRole("link", { name: "annoterm", exact: true }),
-  ).toBeFocused();
+  await expect(firstSectionLink).toBeFocused();
   const copy = page
     .locator("#install")
     .getByRole("button", { name: "Copy code" });
@@ -472,31 +497,29 @@ test("themes preserve saved choice, system changes, and cross-tab storage", asyn
   context,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
+  const picker = (target: Page) =>
+    target.getByRole('group', { name: 'Color theme' });
   await load(page);
-  await page.getByRole("button", { name: "Dark theme", exact: true }).click();
+  await picker(page).getByRole('button', { name: 'Dark theme', exact: true }).click();
   await expect(page.locator("html")).toHaveClass("dark");
   expect(
     await page.evaluate(() => localStorage.getItem("tool-site-theme")),
   ).toBe("dark");
   await page.reload();
-  await expect(
-    page.getByRole("button", { name: "Dark theme", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Light theme", exact: true }).click();
+  await expect(picker(page).getByRole('button', { name: 'Dark theme', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await picker(page).getByRole('button', { name: 'Light theme', exact: true }).click();
   await expect(page.locator("html")).not.toHaveClass("dark");
   await page.emulateMedia({ colorScheme: "dark" });
-  await page.getByRole("button", { name: "System theme", exact: true }).click();
+  await picker(page).getByRole('button', { name: 'System theme', exact: true }).click();
   await expect(page.locator("html")).toHaveClass("dark");
   await page.emulateMedia({ colorScheme: "light" });
   await expect(page.locator("html")).not.toHaveClass("dark");
   const other = await context.newPage();
   await other.setViewportSize({ width: 1280, height: 900 });
   await load(other);
-  await other.getByRole("button", { name: "Dark theme", exact: true }).click();
+  await picker(other).getByRole('button', { name: 'Dark theme', exact: true }).click();
   await expect(page.locator("html")).toHaveClass("dark");
-  await expect(
-    page.getByRole("button", { name: "Dark theme", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await expect(picker(page).getByRole('button', { name: 'Dark theme', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await other.close();
 });
 
@@ -511,20 +534,14 @@ test("reduced motion disables smooth anchor scrolling", async ({ page }) => {
   await expect(page.locator(".reveal-pending")).toHaveCount(0);
 });
 
-test("offscreen sections reveal once and recover if reduced motion changes", async ({
-  page,
-}) => {
-  await page.emulateMedia({ reducedMotion: "no-preference" });
+test('offscreen sections stay visible when motion preferences change', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
   await load(page);
   const commands = page.locator('section[aria-labelledby="commands-title"]');
-  await expect(commands).toHaveClass(/reveal-pending/);
-  await commands.scrollIntoViewIfNeeded();
-  await expect(commands).not.toHaveClass(/reveal-pending/);
-  await expect
-    .poll(() =>
-      commands.evaluate((element) => getComputedStyle(element).opacity),
-    )
-    .toBe("1");
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await expect(page.locator(".reveal-pending")).toHaveCount(0);
+  await expect(commands).toHaveCSS('opacity', '1');
+  await expect(page.locator('.reveal-pending')).toHaveCount(0);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(commands).toHaveCSS('opacity', '1');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await expect(commands).toHaveCSS('opacity', '1');
 });
