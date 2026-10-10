@@ -2,13 +2,11 @@
 import { nextTick, onMounted, onUnmounted, ref, useTemplateRef } from 'vue';
 import { UiButton, UiDrawer, useActiveSection } from '@filipgutica/ui';
 import NavigationLinks from './NavigationLinks.vue';
-import { useTheme } from '../composables/useTheme';
 
 const enhanced = ref(false);
 const mobile = ref(false);
 const open = ref(false);
 const header = useTemplateRef<HTMLElement>('header');
-const { choice, choose } = useTheme();
 const activeId = useActiveSection({
   targetIds: ['install', 'commands-title', 'keys-title', 'limits-title'],
 });
@@ -35,7 +33,7 @@ const syncBreakpoint = () => {
     );
   } else if (leavingFocusedTrigger) {
     void nextTick(() =>
-      header.value?.querySelector<HTMLElement>('.family a')?.focus({ preventScroll: true }),
+      header.value?.querySelector<HTMLElement>('.section-nav a')?.focus({ preventScroll: true }),
     );
   }
 };
@@ -62,7 +60,7 @@ const closeAutoFocus = (event: Event) => {
     // The drawer trigger disappears when crossing into the desktop rail.
     event.preventDefault();
     void nextTick(() =>
-      header.value?.querySelector<HTMLElement>('.family a')?.focus({ preventScroll: true }),
+      header.value?.querySelector<HTMLElement>('.section-nav a')?.focus({ preventScroll: true }),
     );
   }
 };
@@ -79,7 +77,7 @@ onUnmounted(() => media?.removeEventListener('change', syncBreakpoint));
   <header ref="header" class="site-header" :data-navigation-enhanced="enhanced">
     <details v-if="!enhanced || !mobile" class="site-menu" :open="enhanced && !mobile">
       <summary class="menu-toggle" aria-controls="site-menu-links">Menu</summary>
-      <NavigationLinks :active-id="activeId" :theme="choice" :enhanced="enhanced" @theme="choose" />
+      <NavigationLinks :active-id="activeId" />
     </details>
     <UiDrawer v-else v-model:open="open" title="Navigation" @close-auto-focus="closeAutoFocus">
       <template #trigger
@@ -87,9 +85,6 @@ onUnmounted(() => media?.removeEventListener('change', syncBreakpoint));
       >
       <NavigationLinks
         :active-id="activeId"
-        :theme="choice"
-        :enhanced="enhanced"
-        @theme="choose"
         @navigate="navigate"
       />
     </UiDrawer>

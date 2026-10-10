@@ -6,8 +6,17 @@ for (const width of [320, 390, 768, 801, 1280]) {
   }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/annoterm/");
-    await expect(page.getByRole("link", { name: "annoterm home" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
+    const projectTrigger = page.getByLabel("Project: annoterm", { exact: true });
+    await expect(projectTrigger).toBeVisible();
+    await expect(
+      page
+        .getByRole("navigation", { name: "Site links" })
+        .getByRole("link"),
+    ).toHaveText(["Guide", "GitHub", "Releases"]);
+    // The appearance picker needs JavaScript and is not rendered without it.
+    await expect(
+      page.getByRole("group", { name: "Color theme" }),
+    ).toHaveCount(0);
     await expect(page.locator(".capture-open")).toHaveCount(0);
     await expect(
       page.getByRole("heading", { name: "Read it. Mark it. Send it back.", level: 1 }),
@@ -24,10 +33,22 @@ for (const width of [320, 390, 768, 801, 1280]) {
     await expect(page.locator("#frame-send")).toContainText(
       "Keep annotation identifiers in your response",
     );
-    if (width <= 800) await page.locator(".site-menu > summary").click();
+    // The project menu is a native details element. Close it again so it does
+    // not cover the local Menu on narrow screens.
+    const projectMenu = page.getByRole("navigation", { name: "Projects" });
+    await expect(projectMenu).toBeHidden();
+    await projectTrigger.click();
+    await expect(projectMenu).toBeVisible();
+    await expect(projectMenu.getByRole("link")).toHaveCount(5);
     await expect(
-      page.getByRole("navigation", { name: "Projects" }),
-    ).toBeVisible();
+      projectMenu.getByRole("link", { name: "UI", exact: true }),
+    ).toHaveAttribute("href", "https://filipgutica.github.io/ui/");
+    await expect(projectMenu.locator('[aria-current="page"]')).toHaveText(
+      "annoterm",
+    );
+    await projectTrigger.click();
+    await expect(projectMenu).toBeHidden();
+    if (width <= 800) await page.locator(".site-menu > summary").click();
     const sectionNav = page.getByRole("navigation", { name: "On this page" });
     await expect(sectionNav).toBeVisible();
     await sectionNav
