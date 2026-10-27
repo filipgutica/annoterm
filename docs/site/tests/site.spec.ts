@@ -49,6 +49,7 @@ const projects = [
   ["wtree", "https://filipgutica.github.io/wtree/"],
   ["devps", "https://filipgutica.github.io/devps/"],
   ["Workbench", "https://filipgutica.github.io/t3code/"],
+  ["Filip Stack", "https://filipgutica.github.io/filip-stack/"],
   ["UI", "https://filipgutica.github.io/ui/"],
 ] as const;
 // The shared header lists the family only while its menu is open. Closing it
