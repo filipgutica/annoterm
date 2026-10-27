@@ -39,7 +39,7 @@ for (const width of [320, 390, 768, 801, 1280]) {
     await expect(projectMenu).toBeHidden();
     await projectTrigger.click();
     await expect(projectMenu).toBeVisible();
-    await expect(projectMenu.getByRole("link")).toHaveCount(5);
+    await expect(projectMenu.getByRole("link")).toHaveCount(6);
     await expect(
       projectMenu.getByRole("link", { name: "UI", exact: true }),
     ).toHaveAttribute("href", "https://filipgutica.github.io/ui/");
