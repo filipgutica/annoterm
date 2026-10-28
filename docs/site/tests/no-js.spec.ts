@@ -17,7 +17,7 @@ for (const width of [320, 390, 768, 801, 1280]) {
     await expect(
       page.getByRole("group", { name: "Color theme" }),
     ).toHaveCount(0);
-    await expect(page.locator(".capture-open")).toHaveCount(0);
+    await expect(page.locator(".fg-capture__expand")).toHaveCount(0);
     await expect(
       page.getByRole("heading", { name: "Read it. Mark it. Send it back.", level: 1 }),
     ).toBeVisible();
@@ -48,7 +48,7 @@ for (const width of [320, 390, 768, 801, 1280]) {
     );
     await projectTrigger.click();
     await expect(projectMenu).toBeHidden();
-    if (width <= 800) await page.locator(".site-menu > summary").click();
+    if (width <= 800) await page.locator(".fg-site-rail__menu > summary").click();
     const sectionNav = page.getByRole("navigation", { name: "On this page" });
     await expect(sectionNav).toBeVisible();
     await sectionNav

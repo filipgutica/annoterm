@@ -149,12 +149,12 @@ for (const width of [320, 390, 768, 801, 1280]) {
     await expect(heading).toHaveText("Read it. Mark it. Send it back.");
     // The local Menu sits below the shared header at <=800px, and the section
     // rail sits beside the intro on desktop.
-    const introAnchor = page.locator(width <= 800 ? ".site-header" : ".page-header");
+    const introAnchor = page.locator(width <= 800 ? ".fg-site-rail" : ".page-header");
     const anchorBox = await introAnchor.boundingBox();
     const headingBox = await heading.boundingBox();
     const introGap = (headingBox?.y ?? Infinity) - (anchorBox?.y ?? 0) - (anchorBox?.height ?? 0);
     expect(introGap).toBeGreaterThanOrEqual(0);
-    expect(introGap).toBeLessThanOrEqual(width <= 640 ? 20 : 28);
+    expect(introGap).toBeLessThanOrEqual(width <= 800 ? 20 : 36);
     const siteLinks = header.getByRole("navigation", { name: "Site links" });
     await expect(siteLinks.getByRole("link", { name: "Guide", exact: true })).toHaveAttribute(
       "href", "https://github.com/filipgutica/annoterm/blob/main/README.md",
@@ -168,12 +168,13 @@ for (const width of [320, 390, 768, 801, 1280]) {
     await expect(
       header.getByRole('button', { name: 'System theme', exact: true }),
     ).toHaveAttribute('aria-pressed', 'true');
-    const command = page.locator('.cmd .fg-code-block').first();
+    const command = page.locator('#install .fg-code-block').first();
     const copy = command.getByRole('button', { name: 'Copy code' });
     const blockBox = await command.boundingBox();
     const codeBox = await command.locator('pre').boundingBox();
     const copyBox = await copy.boundingBox();
-    expect(blockBox?.height ?? Infinity).toBeLessThanOrEqual(60);
+    // The library compact row wraps to two lines on phones with its 44px copy target.
+    expect(blockBox?.height ?? Infinity).toBeLessThanOrEqual(width <= 640 ? 64 : 60);
     expect(copyBox?.width ?? 0).toBeGreaterThanOrEqual(44);
     expect(copyBox?.height ?? 0).toBeGreaterThanOrEqual(44);
     expect(
@@ -182,7 +183,7 @@ for (const width of [320, 390, 768, 801, 1280]) {
           ((copyBox?.y ?? 0) + (copyBox?.height ?? 0) / 2),
       ),
     ).toBeLessThan(2);
-    for (const block of await page.locator('.cmd .fg-code-block').all()) {
+    for (const block of await page.locator('#install .fg-code-block').all()) {
       const preBox = await block.locator('pre').boundingBox();
       const buttonBox = await block.getByRole('button', { name: 'Copy code' }).boundingBox();
       expect((preBox?.x ?? 0) + (preBox?.width ?? 0)).toBeLessThanOrEqual((buttonBox?.x ?? 0) + 1);
@@ -339,7 +340,7 @@ test("clicking the capture opens the full-size dialog and restores focus", async
   await load(page);
   const trigger = page.getByRole("button", { name: "Expand Read capture" });
   await expect(page.getByText("Expand capture", { exact: true })).toHaveCount(0);
-  await page.locator("#frame-read .capture-preview").click();
+  await page.locator("#frame-read .fg-capture__preview").click();
   const dialog = page.getByRole("dialog", { name: "Read capture" });
   await expect(dialog).toBeVisible();
   await expect(dialog.locator(".term")).toContainText("Retry policy");
@@ -350,7 +351,7 @@ test("clicking the capture opens the full-size dialog and restores focus", async
   ).toBe("none");
   expect(
     await dialog
-      .locator(".term-wrap")
+      .locator(".fg-capture__screen")
       .evaluate((element) => element.scrollWidth > element.clientWidth),
   ).toBe(true);
   await noOverflow(page);
@@ -459,11 +460,16 @@ test("library code copying and syntax tokens work", async ({
   await expect
     .poll(() => install.locator(".fg-code-block__text > span[style]").count())
     .toBeGreaterThan(0);
-  const command = page.locator('.cmd .fg-code-block').first();
-  const commandText = await command.locator('code').textContent();
-  await command.getByRole('button', { name: 'Copy code' }).click();
-  await expect(command.getByRole('status')).toHaveText('Code copied to clipboard.');
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(commandText);
+  const commands = page.locator('section[aria-labelledby="commands-title"]');
+  for (const command of [
+    "annoterm README.md",
+    "annoterm copy-feedback README.md",
+    "annoterm export README.md --output feedback.md",
+  ]) {
+    await commands.getByRole("button", { name: `Copy ${command}`, exact: true }).click();
+    await expect(commands.getByRole("status")).toHaveText(`${command} copied to clipboard.`);
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(command);
+  }
 });
 
 test("clipboard failure remains recoverable with readable code", async ({
