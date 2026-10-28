@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { UiAlert, UiBadge, UiCard, UiCodeBlock } from "@filipgutica/ui";
+import { UiBadge, UiCard, UiCodeBlock } from "@filipgutica/ui";
 import {
   UiCapture,
   UiCommandList,
@@ -175,7 +175,9 @@ const keys = [
             <kbd>?</kbd> shows all shortcuts in rendered mode or the Comments
             panel.
           </p>
-          <UiCommandList :items="keys" :copyable="false" command-header="Key" />
+          <UiCommandList :items="keys" :copyable="false" command-header="Key">
+            <template #command="{ item }"><kbd>{{ item.command }}</kbd></template>
+          </UiCommandList>
         </section>
 
         <section aria-labelledby="limits-title">
@@ -187,7 +189,7 @@ const keys = [
               document. Anchors follow source changes.
             </dd>
             <dt>External file changes</dt>
-            <dd><UiAlert>Stop saves. No merge view.</UiAlert></dd>
+            <dd>Stop saves. No merge view.</dd>
             <dt>Linux clipboard</dt>
             <dd>
               Copying may need <code>wl-copy</code> for Wayland or
