@@ -1,112 +1,132 @@
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref } from "vue";
-import { UiButton, UiCodeBlock, UiDialog, UiTabs } from "@filipgutica/ui";
-import { UiSiteHeader } from "@filipgutica/ui/site";
-import SiteNavigation from "./components/SiteNavigation.vue";
-import CaptureFigure from "./components/CaptureFigure.vue";
-import CapturePreview from "./components/CapturePreview.vue";
-import { captures, type Capture } from "./captures";
+import { onMounted, ref } from "vue";
+import { UiBadge, UiCard, UiCodeBlock } from "@filipgutica/ui";
+import {
+  UiCapture,
+  UiCommandList,
+  UiSiteHeader,
+  UiSiteNav,
+} from "@filipgutica/ui/site";
+import { captures } from "./captures";
 
 const enhanced = ref(false);
-const activeCapture = ref("read");
-const captureTabs = captures.map(({ id, label }) => ({ value: id, label }));
-const captureOpen = ref(false);
-const viewedCapture = ref<Capture>();
-let captureTrigger: HTMLElement | undefined;
-let firstFrame = 0;
-let secondFrame = 0;
-
-const openCapture = (capture: Capture, trigger: HTMLElement) => {
-  viewedCapture.value = capture;
-  captureTrigger = trigger;
-  captureOpen.value = true;
-};
-const restoreCaptureFocus = (event: Event) => {
-  if (!captureTrigger?.isConnected) return;
-  event.preventDefault();
-  captureTrigger.focus({ preventScroll: true });
-};
-const currentHashTarget = () => {
-  try {
-    return document.getElementById(decodeURIComponent(location.hash.slice(1)));
-  } catch {
-    return null;
-  }
-};
-const alignCurrentHash = async () => {
-  await nextTick();
-  cancelAnimationFrame(firstFrame);
-  cancelAnimationFrame(secondFrame);
-  firstFrame = requestAnimationFrame(() => {
-    secondFrame = requestAnimationFrame(() =>
-      currentHashTarget()?.scrollIntoView({
-        behavior: "instant",
-        block: "start",
-      }),
-    );
-  });
-};
-const selectHashCapture = () => {
-  const target = currentHashTarget();
-  const capture = captures.find(({ id }) => target?.closest(`#frame-${id}`));
-  if (!capture || activeCapture.value === capture.id) return false;
-  activeCapture.value = capture.id;
-  return true;
-};
-const onHashChange = () => {
-  if (selectHashCapture()) void alignCurrentHash();
-};
 onMounted(() => {
   enhanced.value = true;
-  selectHashCapture();
-  // Hydration hides inactive captures. Realign a deep link after preview sizing settles.
-  if (location.hash) void alignCurrentHash();
-  window.addEventListener("hashchange", onHashChange);
-  window.addEventListener("popstate", onHashChange);
 });
-onUnmounted(() => {
-  cancelAnimationFrame(firstFrame);
-  cancelAnimationFrame(secondFrame);
-  window.removeEventListener("hashchange", onHashChange);
-  window.removeEventListener("popstate", onHashChange);
-});
+
+const navigation = [
+  {
+    items: [
+      { label: "Install", href: "#install" },
+      { label: "Commands", href: "#commands-title" },
+      { label: "Keys", href: "#keys-title" },
+      { label: "Good to know", href: "#limits-title" },
+    ],
+  },
+];
+const commands = [
+  { command: "annoterm README.md", description: "Open rendered Markdown." },
+  {
+    command: "annoterm copy-feedback README.md",
+    description: "Copy feedback again if your clipboard was replaced.",
+  },
+  { command: "annoterm export README.md --output feedback.md" },
+];
+const keys = [
+  { command: "a", description: "Comment on the selected block." },
+  { command: "Ctrl+R", description: "Toggle rendered and raw modes." },
+  {
+    command: "Ctrl+K",
+    description: "Comment on a raw selection or rendered block.",
+  },
+  { command: "Ctrl+S", description: "Save raw changes." },
+  { command: "q", description: "Quit rendered mode; copy open comments." },
+];
 </script>
 
 <template>
-  <a class="skip" href="#main">Skip to content</a>
+  <a class="fg-site-skip" href="#main">Skip to content</a>
   <div class="page" :data-enhanced="enhanced">
     <UiSiteHeader
       class="page-header"
       project="annoterm"
       :links="[
-        { label: 'Guide', href: 'https://github.com/filipgutica/annoterm/blob/main/README.md' },
+        {
+          label: 'Guide',
+          href: 'https://github.com/filipgutica/annoterm/blob/main/README.md',
+        },
         { label: 'GitHub', href: 'https://github.com/filipgutica/annoterm' },
-        { label: 'Releases', href: 'https://github.com/filipgutica/annoterm/releases' },
+        {
+          label: 'Releases',
+          href: 'https://github.com/filipgutica/annoterm/releases',
+        },
       ]"
     />
-    <SiteNavigation />
-    <main id="main">
-      <div>
-        <section class="hero" aria-labelledby="title">
-          <h1 id="title" class="tagline">Read it. Mark it. Send it back.</h1>
+    <div class="layout">
+      <UiSiteNav label="On this page" :groups="navigation" />
+      <main id="main">
+        <section id="install" class="intro" aria-labelledby="title">
+          <h1 id="title">Read it. Mark it. Send it back.</h1>
           <p class="lede">
-            Review Markdown in the terminal and send comments to your coding agent.
+            Review Markdown in the terminal and send comments to your coding
+            agent.
           </p>
-          <div id="install" class="install-command">
-            <p class="hint">Install with Homebrew</p>
-            <UiCodeBlock
-              code="brew install filipgutica/tap/annoterm"
-              language="bash"
-              variant="compact"
-              :copyable="enhanced"
-              :wrap="true"
-            />
-          </div>
+          <p class="command-label">Install with Homebrew</p>
+          <UiCodeBlock
+            code="brew install filipgutica/tap/annoterm"
+            language="bash"
+            variant="compact"
+            :copyable="enhanced"
+            :wrap="true"
+          />
           <p class="hint">
             Homebrew builds from source and installs Rust.
             <a href="https://brew.sh/">Install Homebrew</a> if needed.
           </p>
-          <dl class="facts">
+        </section>
+
+        <section class="stage" aria-label="annoterm in use">
+          <p class="stage-label">Demo document in annoterm 0.2.0.</p>
+          <UiCapture :items="captures" label="Steps">
+            <template #caption="{ item }">
+              <p v-if="item.id === 'read'">
+                Opens in rendered mode. The arrow keys select a block. The
+                Comments panel starts empty.
+              </p>
+              <p v-else-if="item.id === 'mark'">
+                Write the comment and press Enter. It saves to a sidecar file,
+                so the Markdown stays unchanged.
+              </p>
+              <p v-else-if="item.id === 'send'">
+                Each open comment carries its location, the quoted text, and a
+                stable ID.
+              </p>
+            </template>
+          </UiCapture>
+          <UiCard class="legend" title="On screen">
+            <dl>
+              <div>
+                <dt class="glyph">●</dt>
+                <dd>Comment anchored to this block.</dd>
+              </div>
+              <div>
+                <dt class="glyph">◌</dt>
+                <dd>Outdated comment at an approximate location.</dd>
+              </div>
+              <div>
+                <dt>Open</dt>
+                <dd>
+                  Open comments enter feedback; resolved comments stay only in
+                  the sidecar.
+                </dd>
+              </div>
+              <div>
+                <dt>Bottom bar</dt>
+                <dd>Active pane's shortcuts.</dd>
+              </div>
+            </dl>
+          </UiCard>
+          <dl class="fg-site-facts">
             <div>
               <dt>Runs on</dt>
               <dd>macOS and Linux</dd>
@@ -117,7 +137,7 @@ onUnmounted(() => {
             </div>
             <div>
               <dt>License</dt>
-              <dd>MIT</dd>
+              <dd><UiBadge>MIT</UiBadge></dd>
             </div>
             <div>
               <dt>Source</dt>
@@ -129,143 +149,53 @@ onUnmounted(() => {
             </div>
           </dl>
         </section>
-        <section class="stage" aria-label="annoterm in use">
-          <p class="stage-label">
-            Demo document in annoterm 0.2.0.
-          </p>
-          <UiTabs v-model="activeCapture" :items="captureTabs" label="Steps">
-            <template #panel="{ value }">
-              <template v-for="capture in captures" :key="capture.id">
-                <CaptureFigure
-                  v-if="capture.id === value"
-                  :capture="capture"
-                  :enhanced="enhanced"
-                  @expand="openCapture"
-                />
-              </template>
-            </template>
-          </UiTabs>
-          <aside class="legend" aria-labelledby="legend-title">
-            <h3 id="legend-title">On screen</h3>
-            <dl style="--cols: 4">
-              <div>
-                <dt>●</dt>
-                <dd>Comment anchored to this block.</dd>
-              </div>
-              <div>
-                <dt>◌</dt>
-                <dd>
-                  Outdated comment at an approximate location.
-                </dd>
-              </div>
-              <div>
-                <dt>Open</dt>
-                <dd>
-                  Open comments enter feedback; resolved comments stay only in the sidecar.
-                </dd>
-              </div>
-              <div>
-                <dt>Bottom bar</dt>
-                <dd>Active pane's shortcuts.</dd>
-              </div>
-            </dl>
-          </aside>
-        </section>
-      </div>
-      <section class="split" aria-labelledby="commands-title">
-        <header>
+
+        <section aria-labelledby="commands-title">
           <h2 id="commands-title">Commands</h2>
-          <p>
-            Feedback is copied after each comment change and on quit with open comments.
+          <p class="section-intro">
+            Feedback is copied after each comment change and on quit with open
+            comments.
           </p>
-        </header>
-        <ul class="rows">
-          <li class="row">
-            <div class="cmd">
-              <UiCodeBlock
-                variant="compact"
-                code="annoterm README.md"
-                language="bash"
-                :copyable="enhanced"
-                :wrap="true"
-              />
-            </div>
-            <p>Open rendered Markdown.</p>
-          </li>
-          <li class="row">
-            <div class="cmd">
-              <UiCodeBlock
-                variant="compact"
-                code="annoterm copy-feedback README.md"
-                language="bash"
-                :copyable="enhanced"
-                :wrap="true"
-              />
-            </div>
-            <p>
-              Copy feedback again if your clipboard was replaced.
-            </p>
-          </li>
-          <li class="row">
-            <div class="cmd">
-              <UiCodeBlock
-                variant="compact"
-                code="annoterm export README.md --output feedback.md"
-                language="bash"
-                :copyable="enhanced"
-                :wrap="true"
-              />
-            </div>
-            <p>
-              Export feedback; <code>--force</code> replaces an existing file.
-            </p>
-          </li>
-        </ul>
-      </section>
-      <section class="split narrow" aria-labelledby="keys-title">
-        <header>
+          <UiCommandList :items="commands">
+            <template #description="{ item }">
+              <template v-if="item.description">{{
+                item.description
+              }}</template>
+              <template v-else
+                >Export feedback; <code>--force</code> replaces an existing
+                file.</template
+              >
+            </template>
+          </UiCommandList>
+        </section>
+
+        <section aria-labelledby="keys-title">
           <h2 id="keys-title">Keys</h2>
-          <p><kbd>?</kbd> shows all shortcuts in rendered mode or the Comments panel.</p>
-        </header>
-        <ul class="rows">
-          <li class="row">
-            <kbd>a</kbd>
-            <p>Comment on the selected block.</p>
-          </li>
-          <li class="row">
-            <kbd>Ctrl+R</kbd>
-            <p>Toggle rendered and raw modes.</p>
-          </li>
-          <li class="row">
-            <kbd>Ctrl+K</kbd>
-            <p>Comment on a raw selection or rendered block.</p>
-          </li>
-          <li class="row">
-            <kbd>Ctrl+S</kbd>
-            <p>Save raw changes.</p>
-          </li>
-          <li class="row">
-            <kbd>q</kbd>
-            <p>Quit rendered mode; copy open comments.</p>
-          </li>
-        </ul>
-      </section>
-      <section class="split" aria-labelledby="limits-title">
-        <header>
+          <p class="section-intro">
+            <kbd>?</kbd> shows all shortcuts in rendered mode or the Comments
+            panel.
+          </p>
+          <UiCommandList :items="keys" :copyable="false" command-header="Key">
+            <template #command="{ item }"><kbd>{{ item.command }}</kbd></template>
+          </UiCommandList>
+        </section>
+
+        <section aria-labelledby="limits-title">
           <h2 id="limits-title">Good to know</h2>
-        </header>
-        <div class="text-rows">
-          <p>
-            <strong>Comments:</strong> JSON sidecars under <code>~/.annoterm</code>,
-            separate from your document. Anchors follow source changes.
-          </p>
-          <p>
-            <strong>External file changes stop saves.</strong> No merge view.
-          </p>
-          <p>
-            <strong>Linux clipboard:</strong> copying may need <code>wl-copy</code> for Wayland
-            or <code>xclip</code> for X11. OSC 52 is the fallback.
-          </p>
+          <dl class="fg-site-definitions">
+            <dt>Comments</dt>
+            <dd>
+              JSON sidecars under <code>~/.annoterm</code>, separate from your
+              document. Anchors follow source changes.
+            </dd>
+            <dt>External file changes</dt>
+            <dd>Stop saves. No merge view.</dd>
+            <dt>Linux clipboard</dt>
+            <dd>
+              Copying may need <code>wl-copy</code> for Wayland or
+              <code>xclip</code> for X11. OSC 52 is the fallback.
+            </dd>
+          </dl>
           <nav class="links" aria-label="Documentation">
             <a href="https://github.com/filipgutica/annoterm#readme"
               >Full reference</a
@@ -279,9 +209,9 @@ onUnmounted(() => {
               >Annotation format</a
             >
           </nav>
-        </div>
-      </section>
-    </main>
+        </section>
+      </main>
+    </div>
     <footer>
       <a href="https://github.com/filipgutica">Built by Filip Gutica</a>
       <nav aria-label="Project links">
@@ -296,23 +226,4 @@ onUnmounted(() => {
       </nav>
     </footer>
   </div>
-  <UiDialog
-    v-model:open="captureOpen"
-    :title="`${viewedCapture?.label ?? ''} capture`"
-    description="Scroll to read the full capture."
-    class="capture-viewer"
-    @close-auto-focus="restoreCaptureFocus"
-  >
-    <CapturePreview
-      v-if="viewedCapture"
-      :html="viewedCapture.html"
-      :label="`${viewedCapture.label} capture at full size`"
-      :fit="false"
-    />
-    <template #footer
-      ><UiButton variant="secondary" size="lg" @click="captureOpen = false"
-        >Close capture</UiButton
-      ></template
-    >
-  </UiDialog>
 </template>
