@@ -552,3 +552,10 @@ test('offscreen sections stay visible when motion preferences change', async ({ 
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await expect(commands).toHaveCSS('opacity', '1');
 });
+
+test("shows each key as a keycap", async ({ page }) => {
+  await load(page);
+  const keys = page.locator('section[aria-labelledby="keys-title"] .fg-command-list__command');
+  await expect(keys.locator("code")).toHaveCount(0);
+  await expect(keys.locator("kbd")).toHaveText(["a", "Ctrl+R", "Ctrl+K", "Ctrl+S", "q"]);
+});
