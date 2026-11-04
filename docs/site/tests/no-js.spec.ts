@@ -8,18 +8,17 @@ for (const width of [320, 390, 768, 801, 1280]) {
     await page.goto("/annoterm/");
     const projectTrigger = page.getByLabel("Project: annoterm", { exact: true });
     await expect(projectTrigger).toBeVisible();
-    await expect(
-      page
-        .getByRole("navigation", { name: "Site links" })
-        .getByRole("link"),
-    ).toHaveText(["Guide", "GitHub", "Releases"]);
+    // Phones keep the header to one row; the footer repeats Releases.
+    const siteLinks = page.getByRole("navigation", { name: "Site links" });
+    if (width <= 640) await expect(siteLinks).toBeHidden();
+    else await expect(siteLinks.getByRole("link")).toHaveText(["GitHub", "Releases"]);
     // The appearance picker needs JavaScript and is not rendered without it.
     await expect(
       page.getByRole("group", { name: "Color theme" }),
     ).toHaveCount(0);
     await expect(page.locator(".fg-capture__expand")).toHaveCount(0);
     await expect(
-      page.getByRole("heading", { name: "Read it. Mark it. Send it back.", level: 1 }),
+      page.getByRole("heading", { name: "Review Markdown in the terminal.", level: 1 }),
     ).toBeVisible();
     await expect(page.locator("#install code")).toHaveText(
       "brew install filipgutica/tap/annoterm",
@@ -34,7 +33,7 @@ for (const width of [320, 390, 768, 801, 1280]) {
       "Keep annotation identifiers in your response",
     );
     // The project menu is a native details element. Close it again so it does
-    // not cover the local Menu on narrow screens.
+    // not cover the "On this page" toggle on narrow screens.
     const projectMenu = page.getByRole("navigation", { name: "Projects" });
     await expect(projectMenu).toBeHidden();
     await projectTrigger.click();
