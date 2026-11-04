@@ -29,12 +29,12 @@ main > .intro {
 }
 .lede {
   max-width: 56ch;
-  margin-top: calc(-1 * var(--space-2));
   color: var(--color-muted);
   font-size: var(--text-lg);
 }
-.command-label {
-  margin-bottom: calc(-1 * var(--space-2));
+.install {
+  display: grid;
+  gap: var(--space-3);
 }
 .section-intro {
   color: var(--color-muted);
@@ -42,30 +42,11 @@ main > .intro {
 }
 main > .stage {
   gap: var(--space-5);
-  margin-top: calc(-1 * var(--space-6));
 }
-/* Four legend entries fit one row of the card at desktop widths. */
-.legend dl {
-  display: grid;
+/* The shell's --sidebar column minimum wraps the four entries to two rows
+ * at 1280 px; a narrower minimum keeps them on one row. */
+.legend .fg-site-legend {
   grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
-  gap: 0 var(--space-6);
-}
-.legend dl > div {
-  display: grid;
-  align-content: start;
-  gap: var(--space-1);
-  padding-block: var(--space-3);
-  border-top: 1px solid var(--color-border-subtle);
-  font-size: var(--text-sm);
-}
-.legend dt {
-  font-weight: var(--weight-medium);
-}
-.legend .glyph {
-  font-family: var(--font-mono);
-}
-.legend dd {
-  color: var(--color-muted);
 }
 .links {
   display: flex;
@@ -77,11 +58,6 @@ main > .stage {
   display: inline-flex;
   align-items: center;
   min-height: var(--control-lg);
-}
-@media (max-width: 800px) {
-  main > .stage {
-    margin-top: calc(-1 * var(--space-2));
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   html {

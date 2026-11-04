@@ -60,14 +60,16 @@ const keys = [
           Comments become precise feedback for Codex, Claude Code, or another
           coding agent.
         </p>
-        <p class="command-label fg-site-meta">Install with Homebrew</p>
-        <UiCodeBlock
-          code="brew install filipgutica/tap/annoterm"
-          language="bash"
-          variant="compact"
-          :copyable="enhanced"
-          :wrap="true"
-        />
+        <div class="install">
+          <p class="fg-site-meta">Install with Homebrew</p>
+          <UiCodeBlock
+            code="brew install filipgutica/tap/annoterm"
+            language="bash"
+            variant="compact"
+            :copyable="enhanced"
+            :wrap="true"
+          />
+        </div>
         <p class="fg-site-meta">
           Homebrew builds from source and installs Rust.
           <a href="https://brew.sh/">Install Homebrew</a> if needed.
@@ -115,13 +117,13 @@ const keys = [
           </template>
         </UiCapture>
         <UiCard class="legend" title="On screen">
-          <dl>
+          <dl class="fg-site-legend">
             <div>
-              <dt class="glyph">●</dt>
+              <dt>●</dt>
               <dd>Comment anchored to this block.</dd>
             </div>
             <div>
-              <dt class="glyph">◌</dt>
+              <dt>◌</dt>
               <dd>Outdated comment at an approximate location.</dd>
             </div>
             <div>
