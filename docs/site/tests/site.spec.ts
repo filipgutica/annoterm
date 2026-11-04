@@ -28,7 +28,7 @@ const test = base.extend<{ cleanPage: void }>({
 
 const load = async (page: Page, hash = "") => {
   await page.goto(`/annoterm/${hash}`);
-  await expect(page.locator(".page")).toHaveAttribute("data-enhanced", "true");
+  await expect(page.locator(".fg-site-docs")).toHaveAttribute("data-enhanced", "true");
   await expect(
     page.getByRole("tab", { name: "Read", exact: true }),
   ).toBeVisible();
@@ -53,7 +53,7 @@ const projects = [
   ["UI", "https://filipgutica.github.io/ui/"],
 ] as const;
 // The shared header lists the family only while its menu is open. Closing it
-// afterwards keeps the dropdown from covering the local Menu on narrow screens.
+// afterwards keeps the dropdown from covering the "On this page" toggle on narrow screens.
 const checkProjectMenu = async (page: Page) => {
   const menu = projectMenu(page);
   await expect(menu).toBeHidden();
@@ -143,28 +143,38 @@ for (const width of [320, 390, 768, 801, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await load(page);
     await noOverflow(page);
-    const header = page.locator(".page-header");
+    const header = page.locator(".fg-site-header");
     await expect(projectTrigger(page)).toBeVisible();
     const heading = page.getByRole("heading", { level: 1 });
-    await expect(heading).toHaveText("Read it. Mark it. Send it back.");
-    // The local Menu sits below the shared header at <=800px, and the section
-    // rail sits beside the intro on desktop.
-    const introAnchor = page.locator(width <= 800 ? ".fg-site-rail" : ".page-header");
+    await expect(heading).toHaveText("Review Markdown in the terminal.");
+    // The "On this page" toggle sits below the shared header at <=800px, and the
+    // section rail sits beside the intro on desktop.
+    const introAnchor = page.locator(width <= 800 ? ".fg-site-rail" : ".fg-site-header");
     const anchorBox = await introAnchor.boundingBox();
     const headingBox = await heading.boundingBox();
     const introGap = (headingBox?.y ?? Infinity) - (anchorBox?.y ?? 0) - (anchorBox?.height ?? 0);
     expect(introGap).toBeGreaterThanOrEqual(0);
-    expect(introGap).toBeLessThanOrEqual(width <= 800 ? 20 : 36);
+    // The docs shell pads main by --space-6 (24px) below the stacked rail.
+    expect(introGap).toBeLessThanOrEqual(width <= 800 ? 24 : 36);
     const siteLinks = header.getByRole("navigation", { name: "Site links" });
-    await expect(siteLinks.getByRole("link", { name: "Guide", exact: true })).toHaveAttribute(
-      "href", "https://github.com/filipgutica/annoterm/blob/main/README.md",
-    );
-    await expect(siteLinks.getByRole("link", { name: "GitHub", exact: true })).toHaveAttribute(
-      "href", "https://github.com/filipgutica/annoterm",
-    );
-    await expect(siteLinks.getByRole("link", { name: "Releases", exact: true })).toHaveAttribute(
-      "href", "https://github.com/filipgutica/annoterm/releases",
-    );
+    if (width <= 640) {
+      // Phones keep the header to one row; the Source fact and the footer keep both destinations.
+      await expect(siteLinks).toBeHidden();
+      await expect(
+        page.locator(".fg-site-facts").getByRole("link", { name: "filipgutica/annoterm", exact: true }),
+      ).toHaveAttribute("href", "https://github.com/filipgutica/annoterm");
+      await expect(
+        page.locator(".fg-site-footer").getByRole("link", { name: "Releases", exact: true }),
+      ).toHaveAttribute("href", "https://github.com/filipgutica/annoterm/releases");
+    } else {
+      await expect(siteLinks.getByRole("link")).toHaveText(["GitHub", "Releases"]);
+      await expect(siteLinks.getByRole("link", { name: "GitHub", exact: true })).toHaveAttribute(
+        "href", "https://github.com/filipgutica/annoterm",
+      );
+      await expect(siteLinks.getByRole("link", { name: "Releases", exact: true })).toHaveAttribute(
+        "href", "https://github.com/filipgutica/annoterm/releases",
+      );
+    }
     await expect(
       header.getByRole('button', { name: 'System theme', exact: true }),
     ).toHaveAttribute('aria-pressed', 'true');
@@ -209,7 +219,7 @@ for (const width of [320, 390, 768, 801, 1280]) {
     );
     await checkProjectMenu(page);
     if (width <= 800)
-      await page.getByRole("button", { name: "Menu", exact: true }).click();
+      await page.getByRole("button", { name: "On this page", exact: true }).click();
     await expect(
       page.getByRole("navigation", { name: "On this page" }),
     ).toBeVisible();
@@ -372,9 +382,9 @@ test("drawer focus, dismissal, anchor destination, and desktop breakpoint", asyn
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await load(page);
-  const trigger = page.getByRole("button", { name: "Menu", exact: true });
+  const trigger = page.getByRole("button", { name: "On this page", exact: true });
   await trigger.click();
-  const drawer = page.getByRole("dialog", { name: "Navigation" });
+  const drawer = page.getByRole("dialog", { name: "On this page" });
   await expect(drawer).toBeVisible();
   for (let index = 0; index < 14; index++) await page.keyboard.press("Tab");
   expect(
@@ -404,7 +414,7 @@ test("drawer focus, dismissal, anchor destination, and desktop breakpoint", asyn
     page.getByRole("navigation", { name: "On this page" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Menu", exact: true }),
+    page.getByRole("button", { name: "On this page", exact: true }),
   ).not.toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(trigger).toBeVisible();
@@ -416,7 +426,7 @@ test("navigation focus survives both breakpoints without stealing content focus"
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await load(page);
-  const trigger = page.getByRole("button", { name: "Menu", exact: true });
+  const trigger = page.getByRole("button", { name: "On this page", exact: true });
   const firstSectionLink = page
     .getByRole("navigation", { name: "On this page" })
     .getByRole("link", { name: "Install", exact: true });
@@ -430,7 +440,7 @@ test("navigation focus survives both breakpoints without stealing content focus"
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(trigger).toBeFocused();
   await trigger.click();
-  await expect(page.getByRole("dialog", { name: "Navigation" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "On this page" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
   await page.setViewportSize({ width: 1280, height: 900 });
