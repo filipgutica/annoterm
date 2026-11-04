@@ -114,14 +114,14 @@ const keys = [
             </p>
           </template>
         </UiCapture>
-        <UiCard title="On screen">
-          <dl class="fg-site-legend">
+        <UiCard class="legend" title="On screen">
+          <dl>
             <div>
-              <dt>●</dt>
+              <dt class="glyph">●</dt>
               <dd>Comment anchored to this block.</dd>
             </div>
             <div>
-              <dt>◌</dt>
+              <dt class="glyph">◌</dt>
               <dd>Outdated comment at an approximate location.</dd>
             </div>
             <div>

@@ -44,6 +44,29 @@ main > .stage {
   gap: var(--space-5);
   margin-top: calc(-1 * var(--space-6));
 }
+/* Four legend entries fit one row of the card at desktop widths. */
+.legend dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+  gap: 0 var(--space-6);
+}
+.legend dl > div {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  padding-block: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+  font-size: var(--text-sm);
+}
+.legend dt {
+  font-weight: var(--weight-medium);
+}
+.legend .glyph {
+  font-family: var(--font-mono);
+}
+.legend dd {
+  color: var(--color-muted);
+}
 .links {
   display: flex;
   flex-wrap: wrap;
