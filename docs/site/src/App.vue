@@ -66,7 +66,7 @@ const keys = [
         <p class="lede">
           annoterm shows a Markdown file in your terminal and lets you comment
           on any paragraph, list, table, or selected text. It turns your open
-          comments into feedback: a prompt you paste into Codex, Claude Code,
+          (unresolved) comments into feedback: a prompt you paste into Codex, Claude Code,
           or another coding agent so it knows exactly what to change.
         </p>
         <div class="install">
@@ -126,9 +126,12 @@ const keys = [
               unchanged.
             </p>
             <p v-else-if="item.id === 'send'">
-              Each open comment becomes one section of the feedback, with its
-              line numbers, the text you selected, and an ID. The agent can use
-              the IDs to say which comment each change answers.
+              Press <kbd>q</kbd> when you finish, and annoterm copies the
+              feedback to your clipboard for you to paste into your agent. Each
+              open comment becomes one section, with its line numbers, the text
+              you selected, and an ID the agent can use to say which comment
+              each change answers. The export command writes the same feedback
+              to a file.
             </p>
           </template>
         </UiCapture>
@@ -163,8 +166,8 @@ const keys = [
       <section aria-labelledby="commands-title">
         <h2 id="commands-title">Commands</h2>
         <p class="section-intro">
-          annoterm copies the feedback to your clipboard each time you change a
-          comment, and again when you quit with open comments.
+          annoterm also copies the feedback to your clipboard each time you
+          change a comment.
         </p>
         <UiCommandList :items="commands">
           <template #description="{ item }">
@@ -196,8 +199,8 @@ const keys = [
           <dt>Comments</dt>
           <dd>
             annoterm keeps each document's comments in a JSON file under
-            <code>~/.annoterm</code>. When the document changes, each comment
-            moves to follow its text. It needs no account or server, and
+            <code>~/.annoterm</code>. When the document changes, annoterm tries
+            to keep each comment on its text. It needs no account or server, and
             it never sends your documents or comments over the network.
           </dd>
           <dt>External file changes</dt>
