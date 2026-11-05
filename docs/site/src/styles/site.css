@@ -9,10 +9,6 @@
 /* The fg-site-docs shell owns the frame, rail, footer, element base, kbd, legend, and
  * capture palette. This file keeps only the composition of this page. */
 @layer base {
-  /* Tab panels use the hidden attribute; keep it ahead of their display rules. */
-  [hidden] {
-    display: none !important;
-  }
   html {
     scroll-behavior: smooth;
   }
@@ -46,7 +42,7 @@ main > .stage {
 /* The shell's --sidebar column minimum wraps the four entries to two rows
  * at 1280 px; a narrower minimum keeps them on one row. */
 .legend .fg-site-legend {
-  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+  --site-legend-column: calc(var(--sidebar) - var(--space-4));
 }
 .links {
   display: flex;
