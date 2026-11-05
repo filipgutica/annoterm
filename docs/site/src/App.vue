@@ -29,22 +29,29 @@ const navigation = [
   },
 ];
 const commands = [
-  { command: "annoterm README.md", description: "Open rendered Markdown." },
+  {
+    command: "annoterm README.md",
+    description: "Open a Markdown file to read and comment on it.",
+  },
   {
     command: "annoterm copy-feedback README.md",
-    description: "Copy feedback again if your clipboard was replaced.",
+    description: "Copy the feedback again if something else replaced your clipboard.",
   },
   { command: "annoterm export README.md --output feedback.md" },
 ];
 const keys = [
   { command: "a", description: "Comment on the selected block." },
-  { command: "Ctrl+R", description: "Toggle rendered and raw modes." },
+  {
+    command: "Ctrl+R",
+    description:
+      "Switch between rendered mode and raw mode, where you edit the Markdown source.",
+  },
   {
     command: "Ctrl+K",
-    description: "Comment on a raw selection or rendered block.",
+    description: "Comment on the text selected in raw mode, or on the selected block.",
   },
-  { command: "Ctrl+S", description: "Save raw changes." },
-  { command: "q", description: "Quit rendered mode; copy open comments." },
+  { command: "Ctrl+S", description: "Save your edits in raw mode." },
+  { command: "q", description: "Quit from rendered mode." },
 ];
 </script>
 
@@ -57,8 +64,10 @@ const keys = [
       <section id="install" class="intro" aria-labelledby="title">
         <h1 id="title">Review Markdown in the terminal.</h1>
         <p class="lede">
-          Comments become precise feedback for Codex, Claude Code, or another
-          coding agent.
+          annoterm shows a Markdown file in your terminal and lets you comment
+          on any paragraph, list, table, or selected text. It turns your open
+          comments into feedback: a prompt you paste into Codex, Claude Code,
+          or another coding agent so it knows exactly what to change.
         </p>
         <div class="install">
           <p class="fg-site-meta">Install with Homebrew</p>
@@ -71,8 +80,9 @@ const keys = [
           />
         </div>
         <p class="fg-site-meta">
-          Homebrew builds from source and installs Rust.
-          <a href="https://brew.sh/">Install Homebrew</a> if needed.
+          Homebrew builds annoterm from source and installs Rust for the build.
+          <a href="https://brew.sh/">Install Homebrew</a> if you don't have
+          it.
         </p>
         <dl class="fg-site-facts">
           <div>
@@ -99,20 +109,26 @@ const keys = [
       </section>
 
       <section class="stage" aria-label="annoterm in use">
-        <p class="fg-site-meta">Demo document in annoterm 0.2.0.</p>
+        <p class="fg-site-meta">
+          These captures show a demo document in annoterm 0.2.0.
+        </p>
         <UiCapture :items="captures" label="Steps">
           <template #caption="{ item }">
             <p v-if="item.id === 'read'">
-              Opens in rendered mode. The arrow keys select a block. The
-              Comments panel starts empty.
+              annoterm opens the file in rendered mode, which shows the
+              formatted document. Press Up or Down to select a block, such as
+              a paragraph or a table. The Comments panel on the right is empty
+              until you add a comment.
             </p>
             <p v-else-if="item.id === 'mark'">
-              Write the comment and press Enter. It saves to a sidecar file,
-              so the Markdown stays unchanged.
+              Press <kbd>a</kbd>, write your comment, and press Enter. annoterm
+              saves the comment in its own file, so your Markdown file stays
+              unchanged.
             </p>
             <p v-else-if="item.id === 'send'">
-              Each open comment carries its location, the quoted text, and a
-              stable ID.
+              Each open comment becomes one section of the feedback, with its
+              line numbers, the text you selected, and an ID. The agent can use
+              the IDs to say which comment each change answers.
             </p>
           </template>
         </UiCapture>
@@ -120,22 +136,25 @@ const keys = [
           <dl class="fg-site-legend">
             <div>
               <dt>●</dt>
-              <dd>Comment anchored to this block.</dd>
+              <dd>This block has a comment.</dd>
             </div>
             <div>
               <dt>◌</dt>
-              <dd>Outdated comment at an approximate location.</dd>
+              <dd>
+                The text changed after you commented, so annoterm shows the
+                comment at the closest location it can find.
+              </dd>
             </div>
             <div>
               <dt>Open</dt>
               <dd>
-                Open comments enter feedback; resolved comments stay only in
-                the sidecar.
+                An open comment goes into the feedback. A resolved comment stays
+                saved but is left out.
               </dd>
             </div>
             <div>
               <dt>Bottom bar</dt>
-              <dd>Active pane's shortcuts.</dd>
+              <dd>Shows the shortcuts for the pane you are using.</dd>
             </div>
           </dl>
         </UiCard>
@@ -144,8 +163,8 @@ const keys = [
       <section aria-labelledby="commands-title">
         <h2 id="commands-title">Commands</h2>
         <p class="section-intro">
-          Feedback is copied after each comment change and on quit with open
-          comments.
+          annoterm copies the feedback to your clipboard each time you change a
+          comment, and again when you quit with open comments.
         </p>
         <UiCommandList :items="commands">
           <template #description="{ item }">
@@ -153,8 +172,8 @@ const keys = [
               item.description
             }}</template>
             <template v-else
-              >Export feedback; <code>--force</code> replaces an existing
-              file.</template
+              >Write the feedback to a file. Add <code>--force</code> to replace
+              an existing file.</template
             >
           </template>
         </UiCommandList>
@@ -163,8 +182,8 @@ const keys = [
       <section aria-labelledby="keys-title">
         <h2 id="keys-title">Keys</h2>
         <p class="section-intro">
-          <kbd>?</kbd> shows all shortcuts in rendered mode or the Comments
-          panel.
+          Press <kbd>?</kbd> in rendered mode or the Comments panel to see
+          every shortcut.
         </p>
         <UiCommandList :items="keys" :copyable="false" command-header="Key">
           <template #command="{ item }"><kbd>{{ item.command }}</kbd></template>
@@ -176,15 +195,23 @@ const keys = [
         <dl class="fg-site-definitions">
           <dt>Comments</dt>
           <dd>
-            JSON sidecars under <code>~/.annoterm</code>, separate from your
-            document. Anchors follow source changes.
+            annoterm keeps each document's comments in a JSON file under
+            <code>~/.annoterm</code>. When the document changes, each comment
+            moves to follow its text. It needs no account or server, and
+            it never sends your documents or comments over the network.
           </dd>
           <dt>External file changes</dt>
-          <dd>Stop saves. No merge view.</dd>
+          <dd>
+            If another program changes the file while you have it open,
+            annoterm refuses to save over that change and shows an error. It
+            has no merge view to combine the two versions.
+          </dd>
           <dt>Linux clipboard</dt>
           <dd>
-            Copying may need <code>wl-copy</code> for Wayland or
-            <code>xclip</code> for X11. OSC 52 is the fallback.
+            If copying fails on Linux, install <code>wl-copy</code> for Wayland
+            or <code>xclip</code> for X11. Without either, annoterm falls back
+            to OSC 52, a terminal escape code that some terminals and SSH
+            sessions block.
           </dd>
         </dl>
         <nav class="links" aria-label="Documentation">
