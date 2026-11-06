@@ -6,6 +6,15 @@
 @import "@filipgutica/ui/themes/graphite-indigo.css";
 @import "@filipgutica/ui/site.css";
 
+:root {
+  --color-project: #0d7468;
+  --color-project-dark: #5cc8b8;
+}
+:root.dark {
+  --color-project: #5cc8b8;
+  --color-project-dark: #5cc8b8;
+}
+
 /* The fg-site-docs shell owns the frame, rail, footer, element base, kbd, legend, and
  * capture palette. This file keeps only the composition of this page. */
 @layer base {
@@ -13,15 +22,12 @@
     scroll-behavior: smooth;
   }
 }
-main > section {
+main > section:not(.fg-site-hero) {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-content: start;
   min-width: 0;
   gap: var(--space-4);
-}
-main > .intro {
-  gap: var(--space-5);
 }
 .lede {
   max-width: 56ch;

@@ -74,49 +74,53 @@ const keys = [
     <UiSiteHeader project="annoterm" :links="headerLinks" />
     <UiSiteNav label="On this page" :groups="navigation" />
     <main id="main">
-      <section id="install" class="intro" aria-labelledby="title">
+      <section id="install" class="fg-site-hero" aria-labelledby="title">
         <h1 id="title">Review Markdown in the terminal.</h1>
-        <p class="lede">
-          annoterm is a terminal app for reviewing Markdown plans and specs.
-          Attach comments to rendered blocks or selected source text.
-          It builds a prompt with your comments and their locations for your coding agent.
-        </p>
-        <div class="install">
-          <p class="fg-site-meta">Install with Homebrew</p>
-          <UiCodeBlock
-            code="brew install filipgutica/tap/annoterm"
-            language="bash"
-            variant="compact"
-            :copyable="enhanced"
-            :wrap="true"
-          />
+        <div class="fg-site-hero__lede">
+          <p class="lede">
+            annoterm is a terminal app for reviewing Markdown plans and specs.
+            Attach comments to rendered blocks or selected source text.
+            It builds a prompt with your comments and their locations for your coding agent.
+          </p>
         </div>
-        <p class="fg-site-meta">
-          Homebrew builds annoterm from source with Rust as a build dependency.
-          <a href="https://brew.sh/">Install Homebrew</a> if you don't have it.
-        </p>
-        <dl class="fg-site-facts">
-          <div>
-            <dt>Runs on</dt>
-            <dd>macOS and Linux</dd>
+        <div class="fg-site-hero__aside">
+          <div class="install">
+            <p class="fg-site-meta">Install with Homebrew</p>
+            <UiCodeBlock
+              code="brew install filipgutica/tap/annoterm"
+              language="bash"
+              variant="compact"
+              :copyable="enhanced"
+              :wrap="true"
+            />
           </div>
-          <div>
-            <dt>Written in</dt>
-            <dd>Rust</dd>
-          </div>
-          <div>
-            <dt>License</dt>
-            <dd>MIT</dd>
-          </div>
-          <div>
-            <dt>Source</dt>
-            <dd>
-              <a href="https://github.com/filipgutica/annoterm"
-                >filipgutica/annoterm</a
-              >
-            </dd>
-          </div>
-        </dl>
+          <p class="fg-site-meta">
+            Homebrew builds annoterm from source with Rust as a build dependency.
+            <a href="https://brew.sh/">Install Homebrew</a> if you don't have it.
+          </p>
+          <dl class="fg-site-facts">
+            <div>
+              <dt>Runs on</dt>
+              <dd>macOS and Linux</dd>
+            </div>
+            <div>
+              <dt>Written in</dt>
+              <dd>Rust</dd>
+            </div>
+            <div>
+              <dt>License</dt>
+              <dd>MIT</dd>
+            </div>
+            <div>
+              <dt>Source</dt>
+              <dd>
+                <a href="https://github.com/filipgutica/annoterm"
+                  >filipgutica/annoterm</a
+                >
+              </dd>
+            </div>
+          </dl>
+        </div>
       </section>
 
       <section aria-labelledby="review-title">
