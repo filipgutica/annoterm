@@ -79,7 +79,10 @@ test("no-JavaScript readers follow the OS dark theme from the library palette", 
   const lightBackground = await page
     .locator("body")
     .evaluate((element) => getComputedStyle(element).backgroundColor);
+  await expect(page.locator("html")).toHaveCSS("--color-project", "#0d7468");
   await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveCSS("--color-project", "#5cc8b8");
+  await expect(page.locator("html")).toHaveCSS("--color-project-dark", "#5cc8b8");
   await expect
     .poll(() =>
       page

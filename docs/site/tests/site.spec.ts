@@ -183,8 +183,8 @@ for (const width of [320, 390, 768, 801, 1280]) {
     const blockBox = await command.boundingBox();
     const codeBox = await command.locator('pre').boundingBox();
     const copyBox = await copy.boundingBox();
-    // The library compact row wraps to two lines on phones with its 44px copy target.
-    expect(blockBox?.height ?? Infinity).toBeLessThanOrEqual(width <= 640 ? 64 : 60);
+    // Plex Mono and the terminal prompt need three lines at 320px, two on wider phones.
+    expect(blockBox?.height ?? Infinity).toBeLessThanOrEqual(width === 320 ? 86 : width <= 640 ? 64 : 60);
     expect(copyBox?.width ?? 0).toBeGreaterThanOrEqual(44);
     expect(copyBox?.height ?? 0).toBeGreaterThanOrEqual(44);
     expect(
@@ -202,24 +202,23 @@ for (const width of [320, 390, 768, 801, 1280]) {
       ).toBe(true);
     }
     const frame = page.locator("#frame-read");
-    await expect
-      .poll(() =>
-        frame
-          .locator(".term")
-          .evaluate(
-            (element) =>
-              element.getBoundingClientRect().width -
-              (element.parentElement?.clientWidth ?? 0),
-          ),
-      )
-      .toBeLessThan(2);
+    // Below the library's 0.7 fit threshold, preserve readable text in a scrolling screen.
+    const screen = frame.locator(".fg-capture__screen");
+    await expect.poll(() => screen.evaluate((element) => {
+      const term = element.querySelector<HTMLElement>(".term");
+      if (!term) return false;
+      const fits = element.clientWidth / term.offsetWidth >= 0.7;
+      return fits
+        ? term.getBoundingClientRect().width <= element.clientWidth + 1
+        : getComputedStyle(term).transform === "none" && element.scrollWidth > element.clientWidth;
+    })).toBe(true);
     await expect(frame.locator(".term")).toContainText("Retry policy");
     await expect(frame.locator(".term")).toContainText(
       "Retries use a fixed five-second delay.",
     );
     await checkProjectMenu(page);
     if (width <= 800)
-      await page.getByRole("button", { name: "On this page", exact: true }).click();
+      await page.getByRole("button", { name: /^On this page:/ }).click();
     await expect(
       page.getByRole("navigation", { name: "On this page" }),
     ).toBeVisible();
@@ -343,14 +342,14 @@ test("library tabs support keyboard navigation and retained capture content", as
   ).toBeFocused();
 });
 
-test("clicking the capture opens the full-size dialog and restores focus", async ({
+test("the full-size control opens the capture dialog and restores focus", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await load(page);
-  const trigger = page.getByRole("button", { name: "Expand Read capture" });
+  const trigger = page.getByRole("button", { name: "Expand Read capture at full size", exact: true });
   await expect(page.getByText("Expand capture", { exact: true })).toHaveCount(0);
-  await page.locator("#frame-read .fg-capture__preview").click();
+  await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Read capture" });
   await expect(dialog).toBeVisible();
   await expect(dialog.locator(".term")).toContainText("Retry policy");
@@ -382,7 +381,7 @@ test("drawer focus, dismissal, anchor destination, and desktop breakpoint", asyn
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await load(page);
-  const trigger = page.getByRole("button", { name: "On this page", exact: true });
+  const trigger = page.getByRole("button", { name: /^On this page:/ });
   await trigger.click();
   const drawer = page.getByRole("dialog", { name: "On this page" });
   await expect(drawer).toBeVisible();
@@ -414,7 +413,7 @@ test("drawer focus, dismissal, anchor destination, and desktop breakpoint", asyn
     page.getByRole("navigation", { name: "On this page" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "On this page", exact: true }),
+    page.getByRole("button", { name: /^On this page:/ }),
   ).not.toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(trigger).toBeVisible();
@@ -426,7 +425,7 @@ test("navigation focus survives both breakpoints without stealing content focus"
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await load(page);
-  const trigger = page.getByRole("button", { name: "On this page", exact: true });
+  const trigger = page.getByRole("button", { name: /^On this page:/ });
   const firstSectionLink = page
     .getByRole("navigation", { name: "On this page" })
     .getByRole("link", { name: "Install", exact: true });
