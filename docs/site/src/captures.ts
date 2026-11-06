@@ -16,10 +16,10 @@ export const captures: readonly Capture[] = [
     command: "annoterm docs/retry-policy.md",
     html: read,
   },
-  { id: "mark", label: "Mark", command: "a, then Enter", html: mark },
+  { id: "mark", label: "Comment", command: "a → write comment → Enter", html: mark },
   {
     id: "send",
-    label: "Send",
+    label: "Feedback",
     command: "annoterm export docs/retry-policy.md --output feedback.md",
     html: send,
   },

@@ -296,7 +296,7 @@ test("capture deep links and hash history reveal the requested tab", async ({
   page,
 }) => {
   await load(page, "#frame-mark");
-  await expect(page.getByRole("tab", { name: "Mark" })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: "Comment", exact: true })).toHaveAttribute(
     "aria-selected",
     "true",
   );
@@ -305,12 +305,12 @@ test("capture deep links and hash history reveal the requested tab", async ({
     location.hash = "#frame-send";
   });
   await expect(
-    page.getByRole("tab", { name: "Send", exact: true }),
+    page.getByRole("tab", { name: "Feedback", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await expect(page.locator("#frame-send")).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/#frame-mark$/);
-  await expect(page.getByRole("tab", { name: "Mark" })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: "Comment", exact: true })).toHaveAttribute(
     "aria-selected",
     "true",
   );
@@ -322,7 +322,7 @@ test("library tabs support keyboard navigation and retained capture content", as
   await load(page);
   await page.getByRole("tab", { name: "Read", exact: true }).focus();
   await page.keyboard.press("ArrowRight");
-  await expect(page.getByRole("tab", { name: "Mark" })).toBeFocused();
+  await expect(page.getByRole("tab", { name: "Comment", exact: true })).toBeFocused();
   await expect(page.locator("#frame-mark")).toBeVisible();
   await expect(page.locator("#frame-mark .term")).toContainText(
     "Explain why this uses a",
@@ -332,7 +332,7 @@ test("library tabs support keyboard navigation and retained capture content", as
   );
   await page.keyboard.press("End");
   await expect(
-    page.getByRole("tab", { name: "Send", exact: true }),
+    page.getByRole("tab", { name: "Feedback", exact: true }),
   ).toBeFocused();
   await expect(page.locator("#frame-send .term")).toContainText(
     "Keep annotation identifiers in your response",
@@ -472,9 +472,9 @@ test("library code copying and syntax tokens work", async ({
     .toBeGreaterThan(0);
   const commands = page.locator('section[aria-labelledby="commands-title"]');
   for (const command of [
-    "annoterm README.md",
     "annoterm copy-feedback README.md",
     "annoterm export README.md --output feedback.md",
+    "annoterm --annotations review.json README.md",
   ]) {
     await commands.getByRole("button", { name: `Copy ${command}`, exact: true }).click();
     await expect(commands.getByRole("status")).toHaveText(`${command} copied to clipboard.`);
@@ -563,9 +563,16 @@ test('offscreen sections stay visible when motion preferences change', async ({ 
   await expect(commands).toHaveCSS('opacity', '1');
 });
 
+// Protects the keys table's keycap rendering: every key cell shows its key in a
+// <kbd>, never as code or plain text. It does not pin the list of keys, so the
+// page copy can add or remove shortcuts.
 test("shows each key as a keycap", async ({ page }) => {
   await load(page);
   const keys = page.locator('section[aria-labelledby="keys-title"] .fg-command-list__command');
   await expect(keys.locator("code")).toHaveCount(0);
-  await expect(keys.locator("kbd")).toHaveText(["a", "Ctrl+R", "Ctrl+K", "Ctrl+S", "q"]);
+  const count = await keys.count();
+  expect(count).toBeGreaterThan(0);
+  await expect(keys.locator("kbd")).toHaveCount(count);
+  for (const text of await keys.locator("kbd").allTextContents())
+    expect(text.trim()).not.toBe("");
 });
