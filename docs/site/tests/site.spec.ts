@@ -575,3 +575,26 @@ test("shows each key as a keycap", async ({ page }) => {
   for (const text of await keys.locator("kbd").allTextContents())
     expect(text.trim()).not.toBe("");
 });
+
+// A local copy of the button drifts from the library's raise, hover, and press.
+test("actions with the button fill are library buttons", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
+  for (const route of ["/annoterm/"]) {
+    await page.goto(route);
+    await page.waitForLoadState("networkidle");
+    const strays = await page.evaluate(() => {
+      const probe = document.body.appendChild(document.createElement("span"));
+      probe.style.background = "var(--color-button-bg)";
+      const fill = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return [...document.querySelectorAll("a, button")]
+        .filter(
+          (element) =>
+            getComputedStyle(element).backgroundColor === fill &&
+            !element.closest(".fg-button"),
+        )
+        .map((element) => element.outerHTML.slice(0, 80));
+    });
+    expect(strays, route).toEqual([]);
+  }
+});
