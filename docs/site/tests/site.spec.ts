@@ -44,12 +44,10 @@ const projectTrigger = (page: Page) =>
   page.getByLabel("Project: annoterm", { exact: true });
 const projectMenu = (page: Page) =>
   page.getByRole("navigation", { name: "Projects" });
+// ui owns the family list and serves it at runtime, so a list change needs no
+// site change. Check only this site's own entry and the link back to ui.
 const projects = [
   ["annoterm", "https://filipgutica.github.io/annoterm/"],
-  ["wtree", "https://filipgutica.github.io/wtree/"],
-  ["devps", "https://filipgutica.github.io/devps/"],
-  ["Workbench", "https://filipgutica.github.io/t3code/"],
-  ["Filip Stack", "https://filipgutica.github.io/filip-stack/"],
   ["UI", "https://filipgutica.github.io/ui/"],
 ] as const;
 // The shared header lists the family only while its menu is open. Closing it
@@ -59,7 +57,6 @@ const checkProjectMenu = async (page: Page) => {
   await expect(menu).toBeHidden();
   await projectTrigger(page).click();
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole("link")).toHaveCount(projects.length);
   for (const [label, href] of projects)
     await expect(
       menu.getByRole("link", { name: label, exact: true }),
@@ -184,7 +181,8 @@ for (const width of [320, 390, 768, 801, 1280]) {
     const codeBox = await command.locator('pre').boundingBox();
     const copyBox = await copy.boundingBox();
     // Plex Mono and the terminal prompt need three lines at 320px, two on wider phones.
-    expect(blockBox?.height ?? Infinity).toBeLessThanOrEqual(width === 320 ? 86 : width <= 640 ? 64 : 60);
+    // The code-block frame adds a 4px inset and a 1px border above and below the code.
+    expect(blockBox?.height ?? Infinity).toBeLessThanOrEqual(width === 320 ? 96 : width <= 640 ? 74 : 60);
     expect(copyBox?.width ?? 0).toBeGreaterThanOrEqual(44);
     expect(copyBox?.height ?? 0).toBeGreaterThanOrEqual(44);
     expect(
