@@ -253,6 +253,10 @@ test("native anchor navigation, history, and scroll selection stay independent",
   await expectAtNativeAnchor(page, "limits-title");
   await traverseHistory({ page, delta: -1, hash: "#commands-title" });
   await expect(page).toHaveURL(/#commands-title$/);
+  // A scrollend left over from the previous smooth scroll can settle
+  // traverseHistory before Back has moved; wait for the anchor so Forward
+  // always has a distance to scroll.
+  await expectAtNativeAnchor(page, "commands-title");
   await traverseHistory({ page, delta: 1, hash: "#limits-title" });
   await expect(page).toHaveURL(/#limits-title$/);
   await expectAtNativeAnchor(page, "limits-title");
