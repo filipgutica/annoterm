@@ -586,7 +586,7 @@ test("actions with the button fill are library buttons", async ({ page }) => {
     await page.waitForLoadState("networkidle");
     const strays = await page.evaluate(() => {
       const probe = document.body.appendChild(document.createElement("span"));
-      probe.style.background = "var(--color-button-bg)";
+      probe.style.background = "var(--color-accent)";
       const fill = getComputedStyle(probe).backgroundColor;
       probe.remove();
       return [...document.querySelectorAll("a, button")]
