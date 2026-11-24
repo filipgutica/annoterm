@@ -175,6 +175,11 @@ for (const width of [320, 390, 768, 801, 1280]) {
     await expect(
       header.getByRole('button', { name: 'System theme', exact: true }),
     ).toHaveAttribute('aria-pressed', 'true');
+    const documentationLink = page
+      .getByRole("navigation", { name: "Documentation" })
+      .getByRole("link", { name: "Full reference", exact: true });
+    expect((await documentationLink.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+
     const command = page.locator('#install .fg-code-block').first();
     const copy = command.getByRole('button', { name: 'Copy code' });
     const blockBox = await command.boundingBox();

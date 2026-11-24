@@ -59,7 +59,7 @@ main > .stage {
 .links a {
   display: inline-flex;
   align-items: center;
-  min-height: var(--control-lg);
+  min-height: var(--control-touch);
 }
 @media (prefers-reduced-motion: reduce) {
   html {
