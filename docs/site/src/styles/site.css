@@ -45,10 +45,10 @@ main > section:not(.fg-site-hero) {
 main > .stage {
   gap: var(--space-5);
 }
-/* The shell's --sidebar column minimum wraps the four entries to two rows
+/* The shell's --sidebar-width column minimum wraps the four entries to two rows
  * at 1280 px; a narrower minimum keeps them on one row. */
 .legend .fg-site-legend {
-  --site-legend-column: calc(var(--sidebar) - var(--space-4));
+  --site-legend-column: calc(var(--sidebar-width) - var(--space-4));
 }
 .links {
   display: flex;
