@@ -187,7 +187,7 @@ for (const width of [320, 390, 768, 801, 1280]) {
     const blockBox = await command.boundingBox();
     const codeBox = await command.locator('pre').boundingBox();
     const copyBox = await copy.boundingBox();
-    // Plex Mono and the terminal prompt need three lines at 320px, two on wider phones.
+    // JetBrains Mono and the terminal prompt need three lines at 320px, two on wider phones.
     // The code-block frame adds a 4px inset and a 1px border above and below the code.
     expect(blockBox?.height ?? Infinity).toBeLessThanOrEqual(width === 320 ? 96 : width <= 640 ? 74 : 60);
     expect(copyBox?.width ?? 0).toBeCloseTo(target, 0);
