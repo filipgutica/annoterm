@@ -138,6 +138,8 @@ for (const width of [320, 390, 768, 801, 1280]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
+    // Copy, header links, and other quiet actions are 32px on desktop and 44px at tablet width.
+    const target = width <= 800 ? 44 : 32;
     await load(page);
     await noOverflow(page);
     const header = page.locator(".fg-site-header");
@@ -188,8 +190,8 @@ for (const width of [320, 390, 768, 801, 1280]) {
     // Plex Mono and the terminal prompt need three lines at 320px, two on wider phones.
     // The code-block frame adds a 4px inset and a 1px border above and below the code.
     expect(blockBox?.height ?? Infinity).toBeLessThanOrEqual(width === 320 ? 96 : width <= 640 ? 74 : 60);
-    expect(copyBox?.width ?? 0).toBeGreaterThanOrEqual(44);
-    expect(copyBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(copyBox?.width ?? 0).toBeCloseTo(target, 0);
+    expect(copyBox?.height ?? 0).toBeCloseTo(target, 0);
     expect(
       Math.abs(
         (codeBox?.y ?? 0) + (codeBox?.height ?? 0) / 2 -
